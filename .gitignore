@@ -71,3 +71,4 @@ htmlcov/
 .code-review-graph/
 .pytest_cache/
 .vscode/
+extra_no_use/
