@@ -4,10 +4,7 @@ ghl_client.py
 GoHighLevel API client for the NG360 Bot.
 Uses the v2 API endpoint (services.leadconnectorhq.com) with a pit- token.
 
-Field IDs are shared with the HOA bot and hardcoded here:
-    FIELD_ID_PRICE
-    FIELD_ID_QUOTE_STATUS
-    FIELD_ID_NOT_ELIGIBLE
+Custom field IDs are defined in ``ghl_contact_fieldids.py`` (location export).
 
 LOCATION ID (from contact response):
   Czwg7VWYU6myocqsb86R
@@ -25,6 +22,8 @@ from typing import Any, Optional
 import httpx
 from dotenv import load_dotenv
 
+from ghl_contact_fieldids import *  # noqa: F401,F403 — FIELD_ID_* source of truth
+
 load_dotenv()
 logger = logging.getLogger(__name__)
 
@@ -37,18 +36,6 @@ GHL_API_KEY       = os.getenv("GHL_API_KEY", "")
 GHL_LOCATION_ID   = os.getenv("GHL_LOCATION_ID", "Czwg7VWYU6myocqsb86R")
 GHL_BASE_URL      = "https://services.leadconnectorhq.com"
 REQUEST_TIMEOUT_S = 20
-
-
-# ---------------------------------------------------------------------------
-# Shared GHL custom field IDs (reused from HOA bot)
-# ---------------------------------------------------------------------------
-
-FIELD_ID_PRICE        = "FbUGPnB3rSRHDU52RV2d"  # Reusing fire_price for total bundled premium
-FIELD_ID_QUOTE_STATUS = "WxZtUOwNYitB1ZRKxzgY"  # Reusing fire_quote_status
-FIELD_ID_NOT_ELIGIBLE = "Ni7UAcQDhxsWG6OwnBdh"  # Reusing not_eligible
-
-# Keep legacy helper fields that are still read by automation.
-FIELD_ID_YEAR_BUILT      = "oGHsIqmSaJUdYs3QHtOI"   # Year Built
 
 
 # ---------------------------------------------------------------------------
@@ -138,8 +125,11 @@ def get_custom_field_by_id(contact: dict, field_id: str) -> Optional[str]:
 
 
 def has_existing_quote(contact: dict) -> bool:
-    """True if price is already set — contact already has a quote."""
-    return bool(get_custom_field_by_id(contact, FIELD_ID_PRICE))
+    """True if bundled or NG auto quote price is already set."""
+    return bool(
+        get_custom_field_by_id(contact, FIELD_ID_PRICE)
+        or get_custom_field_by_id(contact, FIELD_ID_NG_QUOTE_PRICE)
+    )
 
 
 def is_marked_ineligible(contact: dict) -> bool:
@@ -155,6 +145,167 @@ def has_instant_autofill_tag(contact: dict) -> bool:
 def get_year_built(contact: dict) -> str:
     """Return the year_built custom field value, or empty string."""
     return get_custom_field_by_id(contact, FIELD_ID_YEAR_BUILT) or ""
+
+
+def _coerce_int(val: Any) -> int | None:
+    if val is None:
+        return None
+    s = str(val).strip().replace(",", "")
+    if not s:
+        return None
+    try:
+        return int(float(s))
+    except (TypeError, ValueError):
+        return None
+
+
+def _ownership_portal_value(raw: str | None) -> int:
+    """Map GHL ownership text to NG360 ``ddlOwnershipStatus`` option values."""
+    if not raw:
+        return 3
+    t = str(raw).strip().lower()
+    if "lease" in t:
+        return 1
+    if "lien" in t or "financ" in t or "loan" in t:
+        return 2
+    return 3
+
+
+def _append_vehicle_from_fields(
+    contact: dict,
+    *,
+    year_id: str,
+    make_id: str,
+    model_id: str,
+    submodel_id: str,
+    vin_id: str,
+    ownership_id: str,
+    annual_mi_id: str,
+    dist_mi_id: str,
+    fallback_annual_id: str,
+    into: list[dict],
+) -> None:
+    y = get_custom_field_by_id(contact, year_id)
+    mk = get_custom_field_by_id(contact, make_id)
+    md = get_custom_field_by_id(contact, model_id)
+    sub = get_custom_field_by_id(contact, submodel_id)
+    vin = get_custom_field_by_id(contact, vin_id)
+    if not any([y, mk, md, sub, vin]):
+        return
+    own_raw = get_custom_field_by_id(contact, ownership_id)
+    ann = (
+        _coerce_int(get_custom_field_by_id(contact, annual_mi_id))
+        or _coerce_int(get_custom_field_by_id(contact, dist_mi_id))
+        or _coerce_int(get_custom_field_by_id(contact, fallback_annual_id))
+        or _coerce_int(get_custom_field_by_id(contact, FIELD_ID_ANNUAL_MILEAGE))
+    )
+    into.append(
+        {
+            "year": y,
+            "make": mk,
+            "model": md,
+            "submodel": sub,
+            "vin_prefix": vin,
+            "ownership_status": _ownership_portal_value(own_raw),
+            "annual_mileage": ann or 10000,
+            "purchase_date": "03/01/2024",
+        }
+    )
+
+
+def _pad_vehicles_to_count(out: dict) -> None:
+    vlist = out.get("vehicles")
+    if not isinstance(vlist, list):
+        vlist = []
+    n_raw = out.get("num_vehicles")
+    try:
+        n_int = int(n_raw) if n_raw is not None else 0
+    except (TypeError, ValueError):
+        n_int = 0
+    target = max(n_int, len(vlist), 1)
+    base = (
+        dict(vlist[-1])
+        if vlist and isinstance(vlist[-1], dict)
+        else {"ownership_status": 3, "annual_mileage": 10000, "purchase_date": "03/01/2024"}
+    )
+    while len(vlist) < target:
+        vlist.append(dict(base))
+    out["vehicles"] = vlist
+
+
+def enrich_contact_from_custom_fields(contact: dict) -> dict:
+    """
+    Copy GHL ``customFields`` into top-level keys and ``vehicles`` the bridge bot expects.
+
+    Safe to call on already-normalized contacts (only fills empty standard keys).
+    """
+    out = dict(contact)
+    cfs = out.get("customFields")
+    if not isinstance(cfs, list) or not cfs:
+        _pad_vehicles_to_count(out)
+        return out
+
+    def set_if_empty(key: str, value: str | None) -> None:
+        if value is None or not str(value).strip():
+            return
+        cur = out.get(key)
+        if cur is None or not str(cur).strip():
+            out[key] = value
+
+    set_if_empty("firstName", get_custom_field_by_id(out, FIELD_ID_DRV1_FIRST))
+    set_if_empty("lastName", get_custom_field_by_id(out, FIELD_ID_DRV1_LAST))
+    set_if_empty("dateOfBirth", get_custom_field_by_id(out, FIELD_ID_DRV1_DOB))
+    set_if_empty("gender", get_custom_field_by_id(out, FIELD_ID_DRV1_GENDER))
+    set_if_empty("maritalStatus", get_custom_field_by_id(out, FIELD_ID_DRV1_MARITAL))
+    set_if_empty("occupation", get_custom_field_by_id(out, FIELD_ID_DRV1_OCCUPATION))
+    set_if_empty("driverLicenseNumber", get_custom_field_by_id(out, FIELD_ID_DRV1_LIC_NUM))
+
+    home_carrier = get_custom_field_by_id(out, FIELD_ID_CURRENT_HOME_CARRIER)
+    insurer = get_custom_field_by_id(out, FIELD_ID_CURRENT_INSURER)
+    set_if_empty("prior_carrier_home", home_carrier or insurer)
+
+    n_veh = _coerce_int(get_custom_field_by_id(out, FIELD_ID_TOTAL_VEHICLES))
+    if n_veh is None:
+        n_veh = _coerce_int(get_custom_field_by_id(out, FIELD_ID_NUM_AUTO))
+    if n_veh is not None and n_veh > 0:
+        out["num_vehicles"] = n_veh
+
+    vehicles: list[dict] = []
+    _append_vehicle_from_fields(
+        out,
+        year_id=FIELD_ID_VEH1_YEAR,
+        make_id=FIELD_ID_VEH1_MAKE,
+        model_id=FIELD_ID_VEH1_MODEL,
+        submodel_id=FIELD_ID_VEH1_SUBMODEL,
+        vin_id=FIELD_ID_VEH1_VIN,
+        ownership_id=FIELD_ID_VEH1_OWNERSHIP,
+        annual_mi_id=FIELD_ID_VEH1_ANNUAL_MI,
+        dist_mi_id=FIELD_ID_VEH1_DIST_MI,
+        fallback_annual_id=FIELD_ID_ANNUAL_MILEAGE1,
+        into=vehicles,
+    )
+    _append_vehicle_from_fields(
+        out,
+        year_id=FIELD_ID_VEH2_YEAR,
+        make_id=FIELD_ID_VEH2_MAKE,
+        model_id=FIELD_ID_VEH2_MODEL,
+        submodel_id=FIELD_ID_VEH2_SUBMODEL,
+        vin_id=FIELD_ID_VEH2_VIN,
+        ownership_id=FIELD_ID_VEH2_OWNERSHIP,
+        annual_mi_id=FIELD_ID_VEH2_ANNUAL_MI,
+        dist_mi_id=FIELD_ID_VEH2_DIST_MI,
+        fallback_annual_id=FIELD_ID_ANNUAL_MILEAGE2,
+        into=vehicles,
+    )
+
+    existing = out.get("vehicles")
+    if vehicles:
+        out["vehicles"] = vehicles
+    elif not (isinstance(existing, list) and any(isinstance(v, dict) for v in existing)):
+        out["vehicles"] = []
+
+    _pad_vehicles_to_count(out)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -234,11 +385,17 @@ async def record_successful_quote(
     drive_url: str,
     pay_plan: str = "",
 ) -> None:
-    """Write NG360 quote results to shared HOA fields and tag for success."""
-    updates = {
+    """Write NG360 quote results to GHL (bundle + NG auto fields) and tag for success."""
+    ng_price = (auto_premium or "").strip() or total_premium
+    updates: dict[str, str] = {
         FIELD_ID_PRICE: total_premium,
         FIELD_ID_QUOTE_STATUS: STATUS_COMPLETED,
+        FIELD_ID_NG_QUOTE_PRICE: ng_price,
+        FIELD_ID_AUTO_QUOTE_STATUS: STATUS_COMPLETED,
     }
+    if drive_url.strip():
+        updates[FIELD_ID_AUTO_QUOTE_URL] = drive_url.strip()
+        updates[FIELD_ID_NG_QUOTE_PDF] = drive_url.strip()
 
     await update_contact_fields(contact_id, updates)
     await add_tag_to_contact(contact_id, TAG_NG_SUCCESS)
@@ -248,6 +405,7 @@ async def record_failed_quote(contact_id: str, reason: str = "", missing_data: b
     """Mark quote as failed in GHL and apply appropriate tags."""
     await update_contact_fields(contact_id, {
         FIELD_ID_QUOTE_STATUS: STATUS_FAILED,
+        FIELD_ID_AUTO_QUOTE_STATUS: STATUS_FAILED,
     })
 
     # Apply specific tag based on why it failed
@@ -266,6 +424,7 @@ async def record_ineligible_contact(contact_id: str, reason: str) -> None:
     updates: dict[str, str] = {
         FIELD_ID_NOT_ELIGIBLE: reason,
         FIELD_ID_QUOTE_STATUS: STATUS_INELIGIBLE,
+        FIELD_ID_AUTO_QUOTE_STATUS: STATUS_INELIGIBLE,
     }
     await update_contact_fields(contact_id, updates)
 
@@ -278,6 +437,4 @@ async def record_processing_started(contact_id: str) -> None:
     await add_tag_to_contact(contact_id, TAG_NG_PROCESSING)
 
 
-# Note:
-# Home/auto premium breakdown, quote URL/date, pay plan, and carrier are still
-# captured in worker notifications but are not written to GHL fields.
+# Note: Home premium breakdown and pay plan are captured in worker notifications.

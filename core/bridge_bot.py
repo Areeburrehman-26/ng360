@@ -20,6 +20,7 @@ from playwright.async_api import (
     async_playwright,
 )
 
+from services.ghl_client import enrich_contact_from_custom_fields
 from utils.data_formatter import format_date_to_mmddyyyy, split_phone_number
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ load_dotenv()
 class NG360BridgeBot:
 
     def __init__(self, contact: dict) -> None:
-        self.contact = self._normalize_contact_payload(contact)
+        self.contact = enrich_contact_from_custom_fields(self._normalize_contact_payload(contact))
         self.username = os.getenv("NATGEN_USERNAME", "")
         self.password = os.getenv("NATGEN_PASSWORD", "")
         self.agent_id = os.getenv("NATGEN_AGENT_ID", "20050264")

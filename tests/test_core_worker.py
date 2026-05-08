@@ -48,7 +48,22 @@ class FakeBot:
 
 
 async def _fake_get_contact(contact_id: str):
-    return {"id": contact_id, "customFields": []}
+    return {
+        "id": contact_id,
+        "firstName": "A",
+        "lastName": "B",
+        "postalCode": "30101",
+        "dateOfBirth": "1980-01-01",
+        "gender": "M",
+        "maritalStatus": "Single",
+        "occupation": "Other",
+        "phone": "6626076394",
+        "address1": "1 Main St",
+        "city": "Acworth",
+        "email": "a@example.com",
+        "vehicles": [{"ownership_status": 3, "annual_mileage": 10000, "purchase_date": "03/01/2024"}],
+        "customFields": [],
+    }
 
 
 async def _stop_sleep(_):
@@ -70,6 +85,7 @@ def test_worker_success_path(monkeypatch):
     monkeypatch.setattr(worker, "queue_manager", qm)
     monkeypatch.setattr(worker, "NG360BridgeBot", FakeBot)
     monkeypatch.setattr(worker, "get_contact", _fake_get_contact)
+    monkeypatch.setattr(worker, "record_processing_started", lambda *_a, **_k: asyncio.sleep(0))
     monkeypatch.setattr(worker, "record_successful_quote", fake_record_successful_quote)
     monkeypatch.setattr(worker, "notify_quote_success", fake_notify_quote_success)
     monkeypatch.setattr(worker, "upload_quote_pdf", lambda *args, **kwargs: "")
@@ -103,6 +119,7 @@ def test_worker_marks_failed_when_pdf_missing(monkeypatch):
     monkeypatch.setattr(worker, "queue_manager", qm)
     monkeypatch.setattr(worker, "NG360BridgeBot", BotNoPdf)
     monkeypatch.setattr(worker, "get_contact", _fake_get_contact)
+    monkeypatch.setattr(worker, "record_processing_started", lambda *_a, **_k: asyncio.sleep(0))
     monkeypatch.setattr(worker, "record_failed_quote", fake_record_failed_quote)
     monkeypatch.setattr(worker, "notify_quote_failure", fake_notify_quote_failure)
     monkeypatch.setattr(worker.asyncio, "sleep", _stop_sleep)

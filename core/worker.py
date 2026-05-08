@@ -31,6 +31,7 @@ from core.logging_setup import configure_logging
 from services.drive_uploader import upload_quote_pdf
 from services.ghl_client import (
     GHLError,
+    enrich_contact_from_custom_fields,
     get_contact,
     record_processing_started,
     record_failed_quote,
@@ -109,7 +110,7 @@ async def run_worker():
 
             # Fetch full contact data from GHL
             try:
-                contact = await get_contact(job.contact_id)
+                contact = enrich_contact_from_custom_fields(await get_contact(job.contact_id))
             except GHLError as exc:
                 logger.error("[worker] GHL fetch failed for job %s: %s", job.job_id, exc)
                 await queue_manager.mark_failed(job.job_id, error=f"GHL fetch failed: {exc}")
