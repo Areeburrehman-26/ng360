@@ -1,0 +1,1612 @@
+﻿[
+    {
+        "id":  "EK71t2qR4ZVcG9tYOytC",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "(770) 701-1973",
+        "firstName":  null,
+        "lastName":  null,
+        "firstNameRaw":  null,
+        "lastNameRaw":  null,
+        "companyName":  null,
+        "email":  null,
+        "phone":  "+17707011973",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  "9HjJIQHkqFBhc3WZCtXU",
+        "city":  "MARIETTA",
+        "state":  "GA",
+        "postalCode":  "30067",
+        "address1":  null,
+        "dateAdded":  "2026-04-22T18:25:33.606Z",
+        "dateUpdated":  "2026-04-22T20:12:41.386Z",
+        "dateOfBirth":  null,
+        "businessId":  null,
+        "tags":  [
+                     "couldn\u0027t find caller name",
+                     "customer replied",
+                     "new lead - last 3 days",
+                     "sales question"
+                 ],
+        "followers":  [
+                          "15r5qEUTY8gqIiMU1m9g"
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  "America/New_York",
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "attributions":  [
+                             {
+                                 "utmSessionSource":  "Other",
+                                 "isFirst":  true,
+                                 "medium":  "other"
+                             }
+                         ],
+        "customFields":  [
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "jtIe9RfksX8OwZe1eZ45",
+                                 "value":  2
+                             },
+                             {
+                                 "id":  "jcjjpI2d6lKaHdYBvDqf",
+                                 "value":  1
+                             },
+                             {
+                                 "id":  "gcPNZakn3osaRXd1cBg3",
+                                 "value":  "15r5qEUTY8gqIiMU1m9g"
+                             },
+                             {
+                                 "id":  "ptniuk8b8iJ7RqyhLOa8",
+                                 "value":  "kimberly@trustwellinsurance.com"
+                             }
+                         ],
+        "startAfter":  [
+                           1776882333606,
+                           "EK71t2qR4ZVcG9tYOytC"
+                       ]
+    },
+    {
+        "id":  "p9TBHSd0OomQXA8popB2",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "cheryl hays",
+        "firstName":  "cheryl",
+        "lastName":  "hays",
+        "firstNameRaw":  "CHERYL",
+        "lastNameRaw":  "HAYS",
+        "companyName":  null,
+        "email":  null,
+        "phone":  "+16155964935",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  "Iic8gfXHGkSQqvlzOUmf",
+        "city":  "NASHVILLE",
+        "state":  "TN",
+        "postalCode":  "37217",
+        "address1":  null,
+        "dateAdded":  "2026-04-22T18:17:23.412Z",
+        "dateUpdated":  "2026-04-22T18:19:40.330Z",
+        "dateOfBirth":  null,
+        "businessId":  null,
+        "tags":  [
+                     "name via lookup",
+                     "customer replied",
+                     "sales question",
+                     "new lead - last 3 days"
+                 ],
+        "followers":  [
+
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  null,
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "attributions":  [
+                             {
+                                 "utmSessionSource":  "Other",
+                                 "isFirst":  true,
+                                 "medium":  "other"
+                             }
+                         ],
+        "customFields":  [
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "jtIe9RfksX8OwZe1eZ45",
+                                 "value":  2
+                             },
+                             {
+                                 "id":  "jcjjpI2d6lKaHdYBvDqf",
+                                 "value":  1
+                             }
+                         ],
+        "startAfter":  [
+                           1776881843412,
+                           "p9TBHSd0OomQXA8popB2"
+                       ]
+    },
+    {
+        "id":  "QpPrCJ20qxIz9c5chJlJ",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "dr raza hashmi",
+        "firstName":  "dr raza",
+        "lastName":  "hashmi",
+        "firstNameRaw":  "DR RAZA",
+        "lastNameRaw":  "HASHMI",
+        "companyName":  null,
+        "email":  null,
+        "phone":  "+19012590090",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  null,
+        "city":  "MEMPHIS",
+        "state":  "TN",
+        "postalCode":  "38117",
+        "address1":  null,
+        "dateAdded":  "2026-04-22T17:04:32.323Z",
+        "dateUpdated":  "2026-04-22T17:34:12.555Z",
+        "dateOfBirth":  null,
+        "businessId":  null,
+        "tags":  [
+                     "name via lookup",
+                     "customer replied",
+                     "new lead - last 3 days",
+                     "sales question"
+                 ],
+        "followers":  [
+
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  null,
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "attributions":  [
+                             {
+                                 "utmSessionSource":  "Other",
+                                 "isFirst":  true,
+                                 "medium":  "other"
+                             }
+                         ],
+        "customFields":  [
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "jtIe9RfksX8OwZe1eZ45",
+                                 "value":  1
+                             }
+                         ],
+        "startAfter":  [
+                           1776877472323,
+                           "QpPrCJ20qxIz9c5chJlJ"
+                       ]
+    },
+    {
+        "id":  "A7X4yQO1P6Ep2cGe1vTl",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "robert cheeks",
+        "firstName":  "robert",
+        "lastName":  "cheeks",
+        "firstNameRaw":  "Robert",
+        "lastNameRaw":  "Cheeks",
+        "companyName":  null,
+        "email":  "cheeksrl@live.com",
+        "phone":  "+17577597849",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  "XY7BqzlOuYk3F1FTur5s",
+        "city":  "ROCK HILL",
+        "state":  "SC",
+        "postalCode":  "29730",
+        "address1":  "205 Scoggins St",
+        "dateAdded":  "2026-04-22T09:57:04.614Z",
+        "dateUpdated":  "2026-04-22T13:05:56.301Z",
+        "dateOfBirth":  "1962-03-31",
+        "businessId":  null,
+        "tags":  [
+                     "new lead - last 3 days",
+                     "wavv-no-answer",
+                     "texted today"
+                 ],
+        "followers":  [
+
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  "America/New_York",
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "customFields":  [
+                             {
+                                 "id":  "0zTbyVEssvnAInozzBdz",
+                                 "value":  "3/31/1962"
+                             },
+                             {
+                                 "id":  "2vUp4BAImmIo8a8dsK7N",
+                                 "value":  "SALGS3EF0GA000000"
+                             },
+                             {
+                                 "id":  "341K8Jgel1X5J5OrJm4m",
+                                 "value":  "LAND"
+                             },
+                             {
+                                 "id":  "8JFsLV5CMbvhzGyRNA5y",
+                                 "value":  "Good"
+                             },
+                             {
+                                 "id":  "8Pi9pd0vQ3zmZYNvahO8",
+                                 "value":  "RobertCheeks"
+                             },
+                             {
+                                 "id":  "AWMNPex2qSSme7YK5e4G",
+                                 "value":  "Male"
+                             },
+                             {
+                                 "id":  "C7istMeqbBJT06ZmM76P",
+                                 "value":  "CHEVROLET"
+                             },
+                             {
+                                 "id":  "DXe8dPAy1NzqkRYGsBw2",
+                                 "value":  "SALGS3EF0GA000000"
+                             },
+                             {
+                                 "id":  "DdpYg3Lo5ioWcPyBnRgJ",
+                                 "value":  "2016"
+                             },
+                             {
+                                 "id":  "GbIVaeAE4oOe6xygsCp2",
+                                 "value":  "Single"
+                             },
+                             {
+                                 "id":  "IVPWhlbMASu1hAr6wd6H",
+                                 "value":  "SUBURBAN-SPORT UTILITY VEHICLE  Owned"
+                             },
+                             {
+                                 "id":  "L0VsvqGFhyzNSyqWURdf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "MWLLTPYeXjWbYvtl2sVV",
+                                 "value":  "Owned"
+                             },
+                             {
+                                 "id":  "MY5HS0NaK05DraTN2MZY",
+                                 "value":  "OTHER"
+                             },
+                             {
+                                 "id":  "OtNh5tbboo0LMYzSemjk",
+                                 "value":  "48"
+                             },
+                             {
+                                 "id":  "RnCVSfFKbia26UC6hrpI",
+                                 "value":  "Preferred"
+                             },
+                             {
+                                 "id":  "WmXgvU3uyJaqYAVuUNy4",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "aTgHXTOzecDIgTm94dtJ",
+                                 "value":  "RANGE ROVER-SPORT UTILITY VEHICLE  Owned"
+                             },
+                             {
+                                 "id":  "angsInSy7gZlI1xoFz6E",
+                                 "value":  "Valid"
+                             },
+                             {
+                                 "id":  "aocwICue4fXHKhKc1dZf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "auVJAvWpnnYYYzTo3oW9",
+                                 "value":  "2021"
+                             },
+                             {
+                                 "id":  "bHNx2ZBVrio8qURwWtex",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "f4sPNa61EW2yFgEOnLgF",
+                                 "value":  "RANGE ROVER SUPERCHARGED  Distance Driven"
+                             },
+                             {
+                                 "id":  "nklRSHs53FVK43manawu",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "qclrLfVxDmRh3uv6bMUi",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "seNja9CEi7TLhXew64WI",
+                                 "value":  "SUBURBAN C1500  Distance Driven"
+                             },
+                             {
+                                 "id":  "tiKOdfrlgVFCAWjqVRA7",
+                                 "value":  "3/31/1962"
+                             },
+                             {
+                                 "id":  "z9r6fDjPLXxMHOyD2avg",
+                                 "value":  "OtherNonTechnical"
+                             },
+                             {
+                                 "id":  "zbd63SvyN9iIe1AJcAdh",
+                                 "value":  "100/300/50"
+                             },
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "FbUGPnB3rSRHDU52RV2d",
+                                 "value":  1351
+                             },
+                             {
+                                 "id":  "WxZtUOwNYitB1ZRKxzgY",
+                                 "value":  "completed"
+                             },
+                             {
+                                 "id":  "lyITEnA8S9MIhwHptA0h",
+                                 "value":  "Homeowners Of America"
+                             },
+                             {
+                                 "id":  "PlMzlSNxxeatyDPujXJH",
+                                 "value":  1351
+                             },
+                             {
+                                 "id":  "D1gY1lj17CfHwUIKprgH",
+                                 "value":  221.33
+                             },
+                             {
+                                 "id":  "TVq7CxkxXumd1kD9v1Rm",
+                                 "value":  "https://assets.cdn.filesafe.space/Czwg7VWYU6myocqsb86R/media/a77bb762-65c0-4da3-af13-e187a931b3ce.pdf"
+                             },
+                             {
+                                 "id":  "c8kKkhrqtFZbQZDsSXhA",
+                                 "value":  "GEICO"
+                             }
+                         ],
+        "startAfter":  [
+                           1776851824614,
+                           "A7X4yQO1P6Ep2cGe1vTl"
+                       ]
+    },
+    {
+        "id":  "cexm87VOZDd6SeD5P7ly",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "michael jackson",
+        "firstName":  "michael",
+        "lastName":  "jackson",
+        "firstNameRaw":  "Michael",
+        "lastNameRaw":  "Jackson",
+        "companyName":  null,
+        "email":  "mojackson2943@gmail.com",
+        "phone":  "+18032005048",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  "XY7BqzlOuYk3F1FTur5s",
+        "city":  "AIKEN",
+        "state":  "SC",
+        "postalCode":  "29137",
+        "address1":  "241 river rd",
+        "dateAdded":  "2026-04-22T09:55:59.426Z",
+        "dateUpdated":  "2026-04-22T13:05:33.574Z",
+        "dateOfBirth":  "1943-05-04",
+        "businessId":  null,
+        "tags":  [
+                     "new lead - last 3 days",
+                     "wavv-left-voicemail",
+                     "texted today"
+                 ],
+        "followers":  [
+
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  "America/New_York",
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "customFields":  [
+                             {
+                                 "id":  "0zTbyVEssvnAInozzBdz",
+                                 "value":  "4/5/1943"
+                             },
+                             {
+                                 "id":  "2vUp4BAImmIo8a8dsK7N",
+                                 "value":  "5TELU42N07M000000"
+                             },
+                             {
+                                 "id":  "341K8Jgel1X5J5OrJm4m",
+                                 "value":  "TOYOTA"
+                             },
+                             {
+                                 "id":  "8JFsLV5CMbvhzGyRNA5y",
+                                 "value":  "Good"
+                             },
+                             {
+                                 "id":  "8Pi9pd0vQ3zmZYNvahO8",
+                                 "value":  "MichaelJackson"
+                             },
+                             {
+                                 "id":  "AWMNPex2qSSme7YK5e4G",
+                                 "value":  "Male"
+                             },
+                             {
+                                 "id":  "C7istMeqbBJT06ZmM76P",
+                                 "value":  "HYUNDAI"
+                             },
+                             {
+                                 "id":  "DXe8dPAy1NzqkRYGsBw2",
+                                 "value":  "5TELU42N07M000000"
+                             },
+                             {
+                                 "id":  "DdpYg3Lo5ioWcPyBnRgJ",
+                                 "value":  "2007"
+                             },
+                             {
+                                 "id":  "GbIVaeAE4oOe6xygsCp2",
+                                 "value":  "Married"
+                             },
+                             {
+                                 "id":  "IVPWhlbMASu1hAr6wd6H",
+                                 "value":  "ELANTRA-SEDAN  Owned"
+                             },
+                             {
+                                 "id":  "L0VsvqGFhyzNSyqWURdf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "MWLLTPYeXjWbYvtl2sVV",
+                                 "value":  "Owned"
+                             },
+                             {
+                                 "id":  "MY5HS0NaK05DraTN2MZY",
+                                 "value":  "PROGRESSIVE"
+                             },
+                             {
+                                 "id":  "OtNh5tbboo0LMYzSemjk",
+                                 "value":  "24"
+                             },
+                             {
+                                 "id":  "RnCVSfFKbia26UC6hrpI",
+                                 "value":  "Preferred"
+                             },
+                             {
+                                 "id":  "WmXgvU3uyJaqYAVuUNy4",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "aTgHXTOzecDIgTm94dtJ",
+                                 "value":  "TACOMA-PICKUP  Owned"
+                             },
+                             {
+                                 "id":  "angsInSy7gZlI1xoFz6E",
+                                 "value":  "Valid"
+                             },
+                             {
+                                 "id":  "aocwICue4fXHKhKc1dZf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "auVJAvWpnnYYYzTo3oW9",
+                                 "value":  "2025"
+                             },
+                             {
+                                 "id":  "bHNx2ZBVrio8qURwWtex",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "f4sPNa61EW2yFgEOnLgF",
+                                 "value":  "TACOMA DOUBLE CAB  Distance Driven"
+                             },
+                             {
+                                 "id":  "nklRSHs53FVK43manawu",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "qclrLfVxDmRh3uv6bMUi",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "seNja9CEi7TLhXew64WI",
+                                 "value":  "ELANTRA N LINE  Distance Driven"
+                             },
+                             {
+                                 "id":  "tiKOdfrlgVFCAWjqVRA7",
+                                 "value":  "4/5/1943"
+                             },
+                             {
+                                 "id":  "z9r6fDjPLXxMHOyD2avg",
+                                 "value":  "OtherNonTechnical"
+                             },
+                             {
+                                 "id":  "zbd63SvyN9iIe1AJcAdh",
+                                 "value":  "100/300/50"
+                             },
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "WxZtUOwNYitB1ZRKxzgY",
+                                 "value":  "failed"
+                             },
+                             {
+                                 "id":  "D1gY1lj17CfHwUIKprgH",
+                                 "value":  174.5
+                             },
+                             {
+                                 "id":  "TVq7CxkxXumd1kD9v1Rm",
+                                 "value":  "https://assets.cdn.filesafe.space/Czwg7VWYU6myocqsb86R/media/9c28b03e-c35b-4677-abe3-dc61ac4ba26e.pdf"
+                             },
+                             {
+                                 "id":  "c8kKkhrqtFZbQZDsSXhA",
+                                 "value":  "GEICO"
+                             }
+                         ],
+        "startAfter":  [
+                           1776851759426,
+                           "cexm87VOZDd6SeD5P7ly"
+                       ]
+    },
+    {
+        "id":  "vRWqh51M7ssgqzLIV6sR",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "jacob curry",
+        "firstName":  "jacob",
+        "lastName":  "curry",
+        "firstNameRaw":  "Jacob",
+        "lastNameRaw":  "Curry",
+        "companyName":  null,
+        "email":  "curry.jacob007@gmail.com",
+        "phone":  "+19258130578",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  "XY7BqzlOuYk3F1FTur5s",
+        "city":  "FORT MILL",
+        "state":  "SC",
+        "postalCode":  "29715",
+        "address1":  "315 Chorus Rd",
+        "dateAdded":  "2026-04-22T09:55:05.595Z",
+        "dateUpdated":  "2026-04-22T22:54:18.812Z",
+        "dateOfBirth":  "1992-05-29",
+        "businessId":  null,
+        "tags":  [
+                     "new lead - last 3 days",
+                     "texted today",
+                     "wavv-left-voicemail"
+                 ],
+        "followers":  [
+
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  "America/New_York",
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "customFields":  [
+                             {
+                                 "id":  "0zTbyVEssvnAInozzBdz",
+                                 "value":  "5/29/1992"
+                             },
+                             {
+                                 "id":  "2vUp4BAImmIo8a8dsK7N",
+                                 "value":  "JHMFB2F80CS000000"
+                             },
+                             {
+                                 "id":  "341K8Jgel1X5J5OrJm4m",
+                                 "value":  "HONDA"
+                             },
+                             {
+                                 "id":  "8JFsLV5CMbvhzGyRNA5y",
+                                 "value":  "Good"
+                             },
+                             {
+                                 "id":  "8Pi9pd0vQ3zmZYNvahO8",
+                                 "value":  "JacobCurry"
+                             },
+                             {
+                                 "id":  "AWMNPex2qSSme7YK5e4G",
+                                 "value":  "Male"
+                             },
+                             {
+                                 "id":  "C7istMeqbBJT06ZmM76P",
+                                 "value":  "FORD"
+                             },
+                             {
+                                 "id":  "DXe8dPAy1NzqkRYGsBw2",
+                                 "value":  "JHMFB2F80CS000000"
+                             },
+                             {
+                                 "id":  "DdpYg3Lo5ioWcPyBnRgJ",
+                                 "value":  "2012"
+                             },
+                             {
+                                 "id":  "GbIVaeAE4oOe6xygsCp2",
+                                 "value":  "Married"
+                             },
+                             {
+                                 "id":  "IVPWhlbMASu1hAr6wd6H",
+                                 "value":  "F150-PICKUP  Owned"
+                             },
+                             {
+                                 "id":  "L0VsvqGFhyzNSyqWURdf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "MWLLTPYeXjWbYvtl2sVV",
+                                 "value":  "Owned"
+                             },
+                             {
+                                 "id":  "MY5HS0NaK05DraTN2MZY",
+                                 "value":  "NATIONWIDE"
+                             },
+                             {
+                                 "id":  "OtNh5tbboo0LMYzSemjk",
+                                 "value":  "36"
+                             },
+                             {
+                                 "id":  "RnCVSfFKbia26UC6hrpI",
+                                 "value":  "Preferred"
+                             },
+                             {
+                                 "id":  "WmXgvU3uyJaqYAVuUNy4",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "aTgHXTOzecDIgTm94dtJ",
+                                 "value":  "CIVIC-SEDAN  Owned"
+                             },
+                             {
+                                 "id":  "angsInSy7gZlI1xoFz6E",
+                                 "value":  "Valid"
+                             },
+                             {
+                                 "id":  "aocwICue4fXHKhKc1dZf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "auVJAvWpnnYYYzTo3oW9",
+                                 "value":  "2018"
+                             },
+                             {
+                                 "id":  "bHNx2ZBVrio8qURwWtex",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "f4sPNa61EW2yFgEOnLgF",
+                                 "value":  "CIVIC EX  Distance Driven"
+                             },
+                             {
+                                 "id":  "nklRSHs53FVK43manawu",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "qclrLfVxDmRh3uv6bMUi",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "seNja9CEi7TLhXew64WI",
+                                 "value":  "F150  Distance Driven"
+                             },
+                             {
+                                 "id":  "tiKOdfrlgVFCAWjqVRA7",
+                                 "value":  "5/29/1992"
+                             },
+                             {
+                                 "id":  "z9r6fDjPLXxMHOyD2avg",
+                                 "value":  "OtherNonTechnical"
+                             },
+                             {
+                                 "id":  "zbd63SvyN9iIe1AJcAdh",
+                                 "value":  "100/300/50"
+                             },
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "FbUGPnB3rSRHDU52RV2d",
+                                 "value":  1850
+                             },
+                             {
+                                 "id":  "WxZtUOwNYitB1ZRKxzgY",
+                                 "value":  "completed"
+                             },
+                             {
+                                 "id":  "lyITEnA8S9MIhwHptA0h",
+                                 "value":  "Homeowners Of America"
+                             },
+                             {
+                                 "id":  "PlMzlSNxxeatyDPujXJH",
+                                 "value":  1850
+                             },
+                             {
+                                 "id":  "D1gY1lj17CfHwUIKprgH",
+                                 "value":  98.5
+                             },
+                             {
+                                 "id":  "TVq7CxkxXumd1kD9v1Rm",
+                                 "value":  "https://assets.cdn.filesafe.space/Czwg7VWYU6myocqsb86R/media/77a93bcb-03ce-4c5a-81c0-4ca035262591.pdf"
+                             },
+                             {
+                                 "id":  "c8kKkhrqtFZbQZDsSXhA",
+                                 "value":  "GEICO"
+                             }
+                         ],
+        "startAfter":  [
+                           1776851705595,
+                           "vRWqh51M7ssgqzLIV6sR"
+                       ]
+    },
+    {
+        "id":  "So1JvVKLnufUld5Nn3Ae",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "beatrice reed",
+        "firstName":  "beatrice",
+        "lastName":  "reed",
+        "firstNameRaw":  "Beatrice",
+        "lastNameRaw":  "Reed",
+        "companyName":  null,
+        "email":  "bigma11388@yahoo.com",
+        "phone":  "+18039280225",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  "XY7BqzlOuYk3F1FTur5s",
+        "city":  "ELGIN",
+        "state":  "SC",
+        "postalCode":  "29045",
+        "address1":  "81 Riding Ridge Rd",
+        "dateAdded":  "2026-04-22T09:55:04.316Z",
+        "dateUpdated":  "2026-04-22T13:06:12.111Z",
+        "dateOfBirth":  "1972-03-20",
+        "businessId":  null,
+        "tags":  [
+                     "new lead - last 3 days",
+                     "wavv-left-voicemail",
+                     "texted today"
+                 ],
+        "followers":  [
+
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  "America/New_York",
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "customFields":  [
+                             {
+                                 "id":  "0zTbyVEssvnAInozzBdz",
+                                 "value":  "3/20/1972"
+                             },
+                             {
+                                 "id":  "2vUp4BAImmIo8a8dsK7N",
+                                 "value":  "1FTPF1ET0BK000000"
+                             },
+                             {
+                                 "id":  "341K8Jgel1X5J5OrJm4m",
+                                 "value":  "FORD"
+                             },
+                             {
+                                 "id":  "8JFsLV5CMbvhzGyRNA5y",
+                                 "value":  "Good"
+                             },
+                             {
+                                 "id":  "8Pi9pd0vQ3zmZYNvahO8",
+                                 "value":  "BeatriceReed"
+                             },
+                             {
+                                 "id":  "AWMNPex2qSSme7YK5e4G",
+                                 "value":  "Female"
+                             },
+                             {
+                                 "id":  "C7istMeqbBJT06ZmM76P",
+                                 "value":  "NISSAN"
+                             },
+                             {
+                                 "id":  "DXe8dPAy1NzqkRYGsBw2",
+                                 "value":  "1FTPF1ET0BK000000"
+                             },
+                             {
+                                 "id":  "DdpYg3Lo5ioWcPyBnRgJ",
+                                 "value":  "2011"
+                             },
+                             {
+                                 "id":  "GbIVaeAE4oOe6xygsCp2",
+                                 "value":  "Single"
+                             },
+                             {
+                                 "id":  "IVPWhlbMASu1hAr6wd6H",
+                                 "value":  "SENTRA-SEDAN  Owned"
+                             },
+                             {
+                                 "id":  "L0VsvqGFhyzNSyqWURdf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "MWLLTPYeXjWbYvtl2sVV",
+                                 "value":  "Owned"
+                             },
+                             {
+                                 "id":  "MY5HS0NaK05DraTN2MZY",
+                                 "value":  "ALLSTATE"
+                             },
+                             {
+                                 "id":  "OtNh5tbboo0LMYzSemjk",
+                                 "value":  "24"
+                             },
+                             {
+                                 "id":  "RnCVSfFKbia26UC6hrpI",
+                                 "value":  "Preferred"
+                             },
+                             {
+                                 "id":  "WmXgvU3uyJaqYAVuUNy4",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "aTgHXTOzecDIgTm94dtJ",
+                                 "value":  "F150-PICKUP  Owned"
+                             },
+                             {
+                                 "id":  "angsInSy7gZlI1xoFz6E",
+                                 "value":  "Valid"
+                             },
+                             {
+                                 "id":  "aocwICue4fXHKhKc1dZf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "auVJAvWpnnYYYzTo3oW9",
+                                 "value":  "2026"
+                             },
+                             {
+                                 "id":  "bHNx2ZBVrio8qURwWtex",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "f4sPNa61EW2yFgEOnLgF",
+                                 "value":  "F150  Distance Driven"
+                             },
+                             {
+                                 "id":  "nklRSHs53FVK43manawu",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "qclrLfVxDmRh3uv6bMUi",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "seNja9CEi7TLhXew64WI",
+                                 "value":  "SENTRA SV  Distance Driven"
+                             },
+                             {
+                                 "id":  "tiKOdfrlgVFCAWjqVRA7",
+                                 "value":  "3/20/1972"
+                             },
+                             {
+                                 "id":  "z9r6fDjPLXxMHOyD2avg",
+                                 "value":  "OtherNonTechnical"
+                             },
+                             {
+                                 "id":  "zbd63SvyN9iIe1AJcAdh",
+                                 "value":  "100/300/50"
+                             },
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "FbUGPnB3rSRHDU52RV2d",
+                                 "value":  1565
+                             },
+                             {
+                                 "id":  "WxZtUOwNYitB1ZRKxzgY",
+                                 "value":  "completed"
+                             },
+                             {
+                                 "id":  "lyITEnA8S9MIhwHptA0h",
+                                 "value":  "Homeowners Of America"
+                             },
+                             {
+                                 "id":  "PlMzlSNxxeatyDPujXJH",
+                                 "value":  1565
+                             },
+                             {
+                                 "id":  "D1gY1lj17CfHwUIKprgH",
+                                 "value":  255.33
+                             },
+                             {
+                                 "id":  "TVq7CxkxXumd1kD9v1Rm",
+                                 "value":  "https://assets.cdn.filesafe.space/Czwg7VWYU6myocqsb86R/media/69eabd2b-ee36-44da-a4df-e3a7d585721d.pdf"
+                             },
+                             {
+                                 "id":  "c8kKkhrqtFZbQZDsSXhA",
+                                 "value":  "GEICO"
+                             }
+                         ],
+        "startAfter":  [
+                           1776851704316,
+                           "So1JvVKLnufUld5Nn3Ae"
+                       ]
+    },
+    {
+        "id":  "WIOodBBjwxn3DY1b3lwM",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "dominik colter",
+        "firstName":  "dominik",
+        "lastName":  "colter",
+        "firstNameRaw":  "Dominik",
+        "lastNameRaw":  "Colter",
+        "companyName":  null,
+        "email":  "dcolter133@gmail.com",
+        "phone":  "+18032905294",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  "XY7BqzlOuYk3F1FTur5s",
+        "city":  "ORANGEBURG",
+        "state":  "SC",
+        "postalCode":  "29118",
+        "address1":  "335 young town circle",
+        "dateAdded":  "2026-04-22T09:49:25.002Z",
+        "dateUpdated":  "2026-04-22T14:47:57.713Z",
+        "dateOfBirth":  "1996-11-17",
+        "businessId":  null,
+        "tags":  [
+                     "new lead - last 3 days",
+                     "wavv-left-voicemail",
+                     "texted today",
+                     "customer replied"
+                 ],
+        "followers":  [
+
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  "America/New_York",
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "customFields":  [
+                             {
+                                 "id":  "0zTbyVEssvnAInozzBdz",
+                                 "value":  "11/17/1996"
+                             },
+                             {
+                                 "id":  "2vUp4BAImmIo8a8dsK7N",
+                                 "value":  "1HGCR2F60GA000000"
+                             },
+                             {
+                                 "id":  "341K8Jgel1X5J5OrJm4m",
+                                 "value":  "HONDA"
+                             },
+                             {
+                                 "id":  "8JFsLV5CMbvhzGyRNA5y",
+                                 "value":  "Good"
+                             },
+                             {
+                                 "id":  "8Pi9pd0vQ3zmZYNvahO8",
+                                 "value":  "DominikColter"
+                             },
+                             {
+                                 "id":  "AWMNPex2qSSme7YK5e4G",
+                                 "value":  "Male"
+                             },
+                             {
+                                 "id":  "C7istMeqbBJT06ZmM76P",
+                                 "value":  "HONDA"
+                             },
+                             {
+                                 "id":  "DXe8dPAy1NzqkRYGsBw2",
+                                 "value":  "1HGCR2F60GA000000"
+                             },
+                             {
+                                 "id":  "DdpYg3Lo5ioWcPyBnRgJ",
+                                 "value":  "2016"
+                             },
+                             {
+                                 "id":  "GbIVaeAE4oOe6xygsCp2",
+                                 "value":  "Single"
+                             },
+                             {
+                                 "id":  "IVPWhlbMASu1hAr6wd6H",
+                                 "value":  "ACCORD-SEDAN  Owned"
+                             },
+                             {
+                                 "id":  "L0VsvqGFhyzNSyqWURdf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "MWLLTPYeXjWbYvtl2sVV",
+                                 "value":  "Owned"
+                             },
+                             {
+                                 "id":  "MY5HS0NaK05DraTN2MZY",
+                                 "value":  "ALLSTATE"
+                             },
+                             {
+                                 "id":  "OtNh5tbboo0LMYzSemjk",
+                                 "value":  "24"
+                             },
+                             {
+                                 "id":  "RnCVSfFKbia26UC6hrpI",
+                                 "value":  "Preferred"
+                             },
+                             {
+                                 "id":  "WmXgvU3uyJaqYAVuUNy4",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "aTgHXTOzecDIgTm94dtJ",
+                                 "value":  "ACCORD-SEDAN  Owned"
+                             },
+                             {
+                                 "id":  "angsInSy7gZlI1xoFz6E",
+                                 "value":  "Valid"
+                             },
+                             {
+                                 "id":  "aocwICue4fXHKhKc1dZf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "auVJAvWpnnYYYzTo3oW9",
+                                 "value":  "2014"
+                             },
+                             {
+                                 "id":  "bHNx2ZBVrio8qURwWtex",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "f4sPNa61EW2yFgEOnLgF",
+                                 "value":  "ACCORD SPORT  Distance Driven"
+                             },
+                             {
+                                 "id":  "nklRSHs53FVK43manawu",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "qclrLfVxDmRh3uv6bMUi",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "seNja9CEi7TLhXew64WI",
+                                 "value":  "ACCORD EXL  Distance Driven"
+                             },
+                             {
+                                 "id":  "tiKOdfrlgVFCAWjqVRA7",
+                                 "value":  "11/17/1996"
+                             },
+                             {
+                                 "id":  "z9r6fDjPLXxMHOyD2avg",
+                                 "value":  "OtherNonTechnical"
+                             },
+                             {
+                                 "id":  "zbd63SvyN9iIe1AJcAdh",
+                                 "value":  "100/300/50"
+                             },
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "FbUGPnB3rSRHDU52RV2d",
+                                 "value":  1983
+                             },
+                             {
+                                 "id":  "WxZtUOwNYitB1ZRKxzgY",
+                                 "value":  "completed"
+                             },
+                             {
+                                 "id":  "lyITEnA8S9MIhwHptA0h",
+                                 "value":  "Homeowners Of America"
+                             },
+                             {
+                                 "id":  "PlMzlSNxxeatyDPujXJH",
+                                 "value":  1983
+                             },
+                             {
+                                 "id":  "D1gY1lj17CfHwUIKprgH",
+                                 "value":  183.83
+                             },
+                             {
+                                 "id":  "TVq7CxkxXumd1kD9v1Rm",
+                                 "value":  "https://assets.cdn.filesafe.space/Czwg7VWYU6myocqsb86R/media/3c691619-7ef3-484d-b156-7a2c7c2799a9.pdf"
+                             },
+                             {
+                                 "id":  "c8kKkhrqtFZbQZDsSXhA",
+                                 "value":  "GEICO"
+                             }
+                         ],
+        "startAfter":  [
+                           1776851365002,
+                           "WIOodBBjwxn3DY1b3lwM"
+                       ]
+    },
+    {
+        "id":  "gSEox5vxRp9rgZa5WRXO",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "christopher ivester",
+        "firstName":  "christopher",
+        "lastName":  "ivester",
+        "firstNameRaw":  "Christopher",
+        "lastNameRaw":  "Ivester",
+        "companyName":  null,
+        "email":  "chrisivester@yahoo.com",
+        "phone":  "+18649074507",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  "XY7BqzlOuYk3F1FTur5s",
+        "city":  "GREENVILLE",
+        "state":  "SC",
+        "postalCode":  "29615",
+        "address1":  "520 Kenilworth Dr",
+        "dateAdded":  "2026-04-22T09:49:05.773Z",
+        "dateUpdated":  "2026-04-22T13:05:45.088Z",
+        "dateOfBirth":  "1980-03-02",
+        "businessId":  null,
+        "tags":  [
+                     "new lead - last 3 days",
+                     "wavv-left-voicemail",
+                     "texted today"
+                 ],
+        "followers":  [
+
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  "America/New_York",
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "customFields":  [
+                             {
+                                 "id":  "0zTbyVEssvnAInozzBdz",
+                                 "value":  "2/3/1980"
+                             },
+                             {
+                                 "id":  "2vUp4BAImmIo8a8dsK7N",
+                                 "value":  "3FA6P0K90GR000000"
+                             },
+                             {
+                                 "id":  "341K8Jgel1X5J5OrJm4m",
+                                 "value":  "FORD"
+                             },
+                             {
+                                 "id":  "8JFsLV5CMbvhzGyRNA5y",
+                                 "value":  "Good"
+                             },
+                             {
+                                 "id":  "8Pi9pd0vQ3zmZYNvahO8",
+                                 "value":  "ChristopherIvester"
+                             },
+                             {
+                                 "id":  "AWMNPex2qSSme7YK5e4G",
+                                 "value":  "Male"
+                             },
+                             {
+                                 "id":  "C7istMeqbBJT06ZmM76P",
+                                 "value":  "CHEVROLET"
+                             },
+                             {
+                                 "id":  "DXe8dPAy1NzqkRYGsBw2",
+                                 "value":  "3FA6P0K90GR000000"
+                             },
+                             {
+                                 "id":  "DdpYg3Lo5ioWcPyBnRgJ",
+                                 "value":  "2016"
+                             },
+                             {
+                                 "id":  "GbIVaeAE4oOe6xygsCp2",
+                                 "value":  "Single"
+                             },
+                             {
+                                 "id":  "IVPWhlbMASu1hAr6wd6H",
+                                 "value":  "SILVERADO-PICKUP  Owned"
+                             },
+                             {
+                                 "id":  "L0VsvqGFhyzNSyqWURdf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "MWLLTPYeXjWbYvtl2sVV",
+                                 "value":  "Owned"
+                             },
+                             {
+                                 "id":  "MY5HS0NaK05DraTN2MZY",
+                                 "value":  "PROGRESSIVE"
+                             },
+                             {
+                                 "id":  "OtNh5tbboo0LMYzSemjk",
+                                 "value":  "48"
+                             },
+                             {
+                                 "id":  "RnCVSfFKbia26UC6hrpI",
+                                 "value":  "Preferred"
+                             },
+                             {
+                                 "id":  "WmXgvU3uyJaqYAVuUNy4",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "aTgHXTOzecDIgTm94dtJ",
+                                 "value":  "FUSION-SEDAN  Owned"
+                             },
+                             {
+                                 "id":  "angsInSy7gZlI1xoFz6E",
+                                 "value":  "Valid"
+                             },
+                             {
+                                 "id":  "aocwICue4fXHKhKc1dZf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "auVJAvWpnnYYYzTo3oW9",
+                                 "value":  "2020"
+                             },
+                             {
+                                 "id":  "bHNx2ZBVrio8qURwWtex",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "f4sPNa61EW2yFgEOnLgF",
+                                 "value":  "FUSION TITANIUM  Distance Driven"
+                             },
+                             {
+                                 "id":  "nklRSHs53FVK43manawu",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "qclrLfVxDmRh3uv6bMUi",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "seNja9CEi7TLhXew64WI",
+                                 "value":  "SILVERADO C1500  Distance Driven"
+                             },
+                             {
+                                 "id":  "tiKOdfrlgVFCAWjqVRA7",
+                                 "value":  "2/3/1980"
+                             },
+                             {
+                                 "id":  "z9r6fDjPLXxMHOyD2avg",
+                                 "value":  "OtherNonTechnical"
+                             },
+                             {
+                                 "id":  "zbd63SvyN9iIe1AJcAdh",
+                                 "value":  "100/300/50"
+                             },
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "FbUGPnB3rSRHDU52RV2d",
+                                 "value":  2573
+                             },
+                             {
+                                 "id":  "WxZtUOwNYitB1ZRKxzgY",
+                                 "value":  "completed"
+                             },
+                             {
+                                 "id":  "lyITEnA8S9MIhwHptA0h",
+                                 "value":  "Homeowners Of America"
+                             },
+                             {
+                                 "id":  "PlMzlSNxxeatyDPujXJH",
+                                 "value":  2573
+                             },
+                             {
+                                 "id":  "D1gY1lj17CfHwUIKprgH",
+                                 "value":  115.5
+                             },
+                             {
+                                 "id":  "TVq7CxkxXumd1kD9v1Rm",
+                                 "value":  "https://assets.cdn.filesafe.space/Czwg7VWYU6myocqsb86R/media/ced1aa3d-1de0-4139-9f35-c0c2b9ca8437.pdf"
+                             },
+                             {
+                                 "id":  "c8kKkhrqtFZbQZDsSXhA",
+                                 "value":  "GEICO"
+                             }
+                         ],
+        "startAfter":  [
+                           1776851345773,
+                           "gSEox5vxRp9rgZa5WRXO"
+                       ]
+    },
+    {
+        "id":  "wiFqd643zXIADFaomNK3",
+        "locationId":  "Czwg7VWYU6myocqsb86R",
+        "contactName":  "rueben chernov",
+        "firstName":  "rueben",
+        "lastName":  "chernov",
+        "firstNameRaw":  "Rueben",
+        "lastNameRaw":  "Chernov",
+        "companyName":  null,
+        "email":  "ruebencher@gmail.com",
+        "phone":  "+18643166616",
+        "dnd":  false,
+        "dndSettings":  {
+
+                        },
+        "type":  "lead",
+        "source":  null,
+        "assignedTo":  "XY7BqzlOuYk3F1FTur5s",
+        "city":  "INMAN",
+        "state":  "SC",
+        "postalCode":  "29349",
+        "address1":  "349 Split Oak Ln",
+        "dateAdded":  "2026-04-22T09:47:55.991Z",
+        "dateUpdated":  "2026-04-22T22:55:32.170Z",
+        "dateOfBirth":  "1998-11-28",
+        "businessId":  null,
+        "tags":  [
+                     "new lead - last 3 days",
+                     "wavv-left-voicemail",
+                     "texted today",
+                     "wavv-no-answer"
+                 ],
+        "followers":  [
+
+                      ],
+        "country":  "US",
+        "website":  null,
+        "timezone":  "America/New_York",
+        "profilePhoto":  null,
+        "additionalEmails":  [
+
+                             ],
+        "customFields":  [
+                             {
+                                 "id":  "0zTbyVEssvnAInozzBdz",
+                                 "value":  "11/28/1998"
+                             },
+                             {
+                                 "id":  "2vUp4BAImmIo8a8dsK7N",
+                                 "value":  "3VWD07AJ0GM000000"
+                             },
+                             {
+                                 "id":  "341K8Jgel1X5J5OrJm4m",
+                                 "value":  "VOLKSWAGEN"
+                             },
+                             {
+                                 "id":  "8JFsLV5CMbvhzGyRNA5y",
+                                 "value":  "Good"
+                             },
+                             {
+                                 "id":  "8Pi9pd0vQ3zmZYNvahO8",
+                                 "value":  "RuebenChernov"
+                             },
+                             {
+                                 "id":  "AWMNPex2qSSme7YK5e4G",
+                                 "value":  "Male"
+                             },
+                             {
+                                 "id":  "C7istMeqbBJT06ZmM76P",
+                                 "value":  "LEXUS"
+                             },
+                             {
+                                 "id":  "DXe8dPAy1NzqkRYGsBw2",
+                                 "value":  "3VWD07AJ0GM000000"
+                             },
+                             {
+                                 "id":  "DdpYg3Lo5ioWcPyBnRgJ",
+                                 "value":  "2016"
+                             },
+                             {
+                                 "id":  "GbIVaeAE4oOe6xygsCp2",
+                                 "value":  "Married"
+                             },
+                             {
+                                 "id":  "IVPWhlbMASu1hAr6wd6H",
+                                 "value":  "RX-SPORT UTILITY VEHICLE  Owned"
+                             },
+                             {
+                                 "id":  "L0VsvqGFhyzNSyqWURdf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "MWLLTPYeXjWbYvtl2sVV",
+                                 "value":  "Owned"
+                             },
+                             {
+                                 "id":  "MY5HS0NaK05DraTN2MZY",
+                                 "value":  "PROGRESSIVE"
+                             },
+                             {
+                                 "id":  "OtNh5tbboo0LMYzSemjk",
+                                 "value":  "48"
+                             },
+                             {
+                                 "id":  "RnCVSfFKbia26UC6hrpI",
+                                 "value":  "Preferred"
+                             },
+                             {
+                                 "id":  "WmXgvU3uyJaqYAVuUNy4",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "aTgHXTOzecDIgTm94dtJ",
+                                 "value":  "JETTA-SEDAN  Owned"
+                             },
+                             {
+                                 "id":  "angsInSy7gZlI1xoFz6E",
+                                 "value":  "Valid"
+                             },
+                             {
+                                 "id":  "aocwICue4fXHKhKc1dZf",
+                                 "value":  "500"
+                             },
+                             {
+                                 "id":  "auVJAvWpnnYYYzTo3oW9",
+                                 "value":  "2019"
+                             },
+                             {
+                                 "id":  "bHNx2ZBVrio8qURwWtex",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "f4sPNa61EW2yFgEOnLgF",
+                                 "value":  "JETTA COMFORTLINE  Distance Driven"
+                             },
+                             {
+                                 "id":  "nklRSHs53FVK43manawu",
+                                 "value":  "Commute_Work"
+                             },
+                             {
+                                 "id":  "qclrLfVxDmRh3uv6bMUi",
+                                 "value":  "15000"
+                             },
+                             {
+                                 "id":  "seNja9CEi7TLhXew64WI",
+                                 "value":  "RX 350 BASE  Distance Driven"
+                             },
+                             {
+                                 "id":  "tiKOdfrlgVFCAWjqVRA7",
+                                 "value":  "11/28/1998"
+                             },
+                             {
+                                 "id":  "z9r6fDjPLXxMHOyD2avg",
+                                 "value":  "OtherNonTechnical"
+                             },
+                             {
+                                 "id":  "zbd63SvyN9iIe1AJcAdh",
+                                 "value":  "100/300/50"
+                             },
+                             {
+                                 "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                 "value":  "4/22/2026"
+                             },
+                             {
+                                 "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                 "value":  "4"
+                             },
+                             {
+                                 "id":  "WxZtUOwNYitB1ZRKxzgY",
+                                 "value":  "completed"
+                             },
+                             {
+                                 "id":  "FbUGPnB3rSRHDU52RV2d",
+                                 "value":  1141
+                             },
+                             {
+                                 "id":  "lyITEnA8S9MIhwHptA0h",
+                                 "value":  "Homeowners Of America"
+                             },
+                             {
+                                 "id":  "PlMzlSNxxeatyDPujXJH",
+                                 "value":  1141
+                             },
+                             {
+                                 "id":  "D1gY1lj17CfHwUIKprgH",
+                                 "value":  127
+                             },
+                             {
+                                 "id":  "TVq7CxkxXumd1kD9v1Rm",
+                                 "value":  "https://assets.cdn.filesafe.space/Czwg7VWYU6myocqsb86R/media/2cfa5d41-0b60-45d6-9f41-27bb5a9ee121.pdf"
+                             },
+                             {
+                                 "id":  "c8kKkhrqtFZbQZDsSXhA",
+                                 "value":  "GEICO"
+                             }
+                         ],
+        "startAfter":  [
+                           1776851275991,
+                           "wiFqd643zXIADFaomNK3"
+                       ]
+    }
+]

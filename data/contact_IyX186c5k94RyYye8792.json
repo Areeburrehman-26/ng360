@@ -1,0 +1,217 @@
+﻿{
+    "contact":  {
+                    "id":  "IyX186c5k94RyYye8792",
+                    "dateAdded":  "2026-04-27T09:43:04.194Z",
+                    "type":  "lead",
+                    "locationId":  "Czwg7VWYU6myocqsb86R",
+                    "firstName":  "Franklin",
+                    "firstNameLowerCase":  "franklin",
+                    "fullNameLowerCase":  "franklin postell",
+                    "lastName":  "Postell",
+                    "lastNameLowerCase":  "postell",
+                    "email":  "redlab47@yahoo.com",
+                    "emailLowerCase":  "redlab47@yahoo.com",
+                    "phone":  "+18033164630",
+                    "address1":  "5271 Summerton Hwy",
+                    "city":  "MANNING",
+                    "state":  "SC",
+                    "country":  "US",
+                    "postalCode":  "29102",
+                    "createdBy":  {
+                                      "source":  "INTEGRATION",
+                                      "channel":  "OAUTH",
+                                      "sourceId":  "6166c74cd4ff87056009da29-kupg7tbt",
+                                      "timestamp":  "2026-04-27T09:43:04.194Z"
+                                  },
+                    "timezone":  "America/New_York",
+                    "dateOfBirth":  "1947-09-03",
+                    "tags":  [
+                                 "new hot weekend lead",
+                                 "new lead - last 3 days",
+                                 "first sms sent",
+                                 "texted today"
+                             ],
+                    "followers":  [
+                                      "QFEe3vWj4EBUm7pZuRXK"
+                                  ],
+                    "dateUpdated":  "2026-05-07T12:41:30.765Z",
+                    "assignedTo":  "e0j1D5hdWDkLadSkiUqg",
+                    "customFields":  [
+                                         {
+                                             "id":  "0zTbyVEssvnAInozzBdz",
+                                             "value":  "3/9/1947"
+                                         },
+                                         {
+                                             "id":  "2vUp4BAImmIo8a8dsK7N",
+                                             "value":  "1HGCV2F30JA000000"
+                                         },
+                                         {
+                                             "id":  "341K8Jgel1X5J5OrJm4m",
+                                             "value":  "HONDA"
+                                         },
+                                         {
+                                             "id":  "8JFsLV5CMbvhzGyRNA5y",
+                                             "value":  "Good"
+                                         },
+                                         {
+                                             "id":  "8Pi9pd0vQ3zmZYNvahO8",
+                                             "value":  "FranklinPostell"
+                                         },
+                                         {
+                                             "id":  "AWMNPex2qSSme7YK5e4G",
+                                             "value":  "Male"
+                                         },
+                                         {
+                                             "id":  "C7istMeqbBJT06ZmM76P",
+                                             "value":  "GMC"
+                                         },
+                                         {
+                                             "id":  "DXe8dPAy1NzqkRYGsBw2",
+                                             "value":  "1HGCV2F30JA000000"
+                                         },
+                                         {
+                                             "id":  "DdpYg3Lo5ioWcPyBnRgJ",
+                                             "value":  "2018"
+                                         },
+                                         {
+                                             "id":  "GbIVaeAE4oOe6xygsCp2",
+                                             "value":  "Single"
+                                         },
+                                         {
+                                             "id":  "IVPWhlbMASu1hAr6wd6H",
+                                             "value":  "SIERRA-PICKUP  Owned"
+                                         },
+                                         {
+                                             "id":  "L0VsvqGFhyzNSyqWURdf",
+                                             "value":  "500"
+                                         },
+                                         {
+                                             "id":  "MWLLTPYeXjWbYvtl2sVV",
+                                             "value":  "Owned"
+                                         },
+                                         {
+                                             "id":  "MY5HS0NaK05DraTN2MZY",
+                                             "value":  "OTHER"
+                                         },
+                                         {
+                                             "id":  "OtNh5tbboo0LMYzSemjk",
+                                             "value":  "48"
+                                         },
+                                         {
+                                             "id":  "RnCVSfFKbia26UC6hrpI",
+                                             "value":  "Preferred"
+                                         },
+                                         {
+                                             "id":  "WmXgvU3uyJaqYAVuUNy4",
+                                             "value":  "Commute_Work"
+                                         },
+                                         {
+                                             "id":  "aTgHXTOzecDIgTm94dtJ",
+                                             "value":  "ACCORD-SEDAN  Owned"
+                                         },
+                                         {
+                                             "id":  "angsInSy7gZlI1xoFz6E",
+                                             "value":  "Valid"
+                                         },
+                                         {
+                                             "id":  "aocwICue4fXHKhKc1dZf",
+                                             "value":  "500"
+                                         },
+                                         {
+                                             "id":  "auVJAvWpnnYYYzTo3oW9",
+                                             "value":  "2019"
+                                         },
+                                         {
+                                             "id":  "bHNx2ZBVrio8qURwWtex",
+                                             "value":  "15000"
+                                         },
+                                         {
+                                             "id":  "f4sPNa61EW2yFgEOnLgF",
+                                             "value":  "ACCORD SPORT  Distance Driven"
+                                         },
+                                         {
+                                             "id":  "nklRSHs53FVK43manawu",
+                                             "value":  "Commute_Work"
+                                         },
+                                         {
+                                             "id":  "qclrLfVxDmRh3uv6bMUi",
+                                             "value":  "15000"
+                                         },
+                                         {
+                                             "id":  "seNja9CEi7TLhXew64WI",
+                                             "value":  "SIERRA C1500  Distance Driven"
+                                         },
+                                         {
+                                             "id":  "tiKOdfrlgVFCAWjqVRA7",
+                                             "value":  "3/9/1947"
+                                         },
+                                         {
+                                             "id":  "z9r6fDjPLXxMHOyD2avg",
+                                             "value":  "OtherNonTechnical"
+                                         },
+                                         {
+                                             "id":  "zbd63SvyN9iIe1AJcAdh",
+                                             "value":  "100/300/50"
+                                         },
+                                         {
+                                             "id":  "k1z0GRuyd38CVlsA4Yq4",
+                                             "value":  "4/27/2026"
+                                         },
+                                         {
+                                             "id":  "6ncmMAXYV3LtQuWGUEEX",
+                                             "value":  "4"
+                                         },
+                                         {
+                                             "id":  "D1gY1lj17CfHwUIKprgH",
+                                             "value":  174
+                                         },
+                                         {
+                                             "id":  "c8kKkhrqtFZbQZDsSXhA",
+                                             "value":  "GEICO"
+                                         },
+                                         {
+                                             "id":  "PlMzlSNxxeatyDPujXJH",
+                                             "value":  3683
+                                         },
+                                         {
+                                             "id":  "FbUGPnB3rSRHDU52RV2d",
+                                             "value":  3509
+                                         },
+                                         {
+                                             "id":  "WxZtUOwNYitB1ZRKxzgY",
+                                             "value":  "completed"
+                                         },
+                                         {
+                                             "id":  "lyITEnA8S9MIhwHptA0h",
+                                             "value":  "Homeowners Of America"
+                                         },
+                                         {
+                                             "id":  "0ixiX8MkEQJQOtNJmb9W",
+                                             "value":  "Board 4/24/2026, 6:48 PM"
+                                         },
+                                         {
+                                             "id":  "jcjjpI2d6lKaHdYBvDqf",
+                                             "value":  2
+                                         },
+                                         {
+                                             "id":  "jtIe9RfksX8OwZe1eZ45",
+                                             "value":  2
+                                         },
+                                         {
+                                             "id":  "gcPNZakn3osaRXd1cBg3",
+                                             "value":  "QFEe3vWj4EBUm7pZuRXK"
+                                         },
+                                         {
+                                             "id":  "ptniuk8b8iJ7RqyhLOa8",
+                                             "value":  "kayaniel@trustwellinsurance.com"
+                                         }
+                                     ],
+                    "additionalEmails":  [
+
+                                         ],
+                    "additionalPhones":  [
+
+                                         ]
+                },
+    "traceId":  "705c4568-3c2f-409a-ba7d-87a21a38d2d9"
+}

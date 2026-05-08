@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+playwright
+requests
+httpx
+python-dotenv
+pydantic
+slack-sdk
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+pytest
