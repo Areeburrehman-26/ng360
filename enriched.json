@@ -1,0 +1,232 @@
+{
+  "id": "qqcJSAf4ze0MVnvOONzn",
+  "dateAdded": "2026-02-14T10:12:53.273Z",
+  "type": "lead",
+  "locationId": "Czwg7VWYU6myocqsb86R",
+  "firstName": "John",
+  "firstNameLowerCase": "john",
+  "fullNameLowerCase": "john edwards",
+  "lastName": "Edwards",
+  "lastNameLowerCase": "edwards",
+  "email": "chrkoltahoe@yahoo.com",
+  "emailLowerCase": "chrkoltahoe@yahoo.com",
+  "phone": "+19042386282",
+  "address1": "159 College St",
+  "city": "KINGSLAND",
+  "state": "GA",
+  "country": "US",
+  "postalCode": "31548",
+  "createdBy": {
+    "source": "INTEGRATION",
+    "channel": "OAUTH",
+    "sourceId": "6166c74cd4ff87056009da29-kupg7tbt",
+    "timestamp": "2026-02-14T10:12:53.273Z"
+  },
+  "dateOfBirth": "1980-06-29",
+  "timezone": "America/New_York",
+  "followers": [
+    "QFEe3vWj4EBUm7pZuRXK"
+  ],
+  "tags": [
+    "first sms sent",
+    "texted recently",
+    "wavv-no-answer",
+    "customer replied",
+    "sales question",
+    "first call made"
+  ],
+  "dateUpdated": "2026-05-10T15:02:44.278Z",
+  "assignedTo": "PDtxPdIWY1A6zhLjRGt2",
+  "customFields": [
+    {
+      "id": "0zTbyVEssvnAInozzBdz",
+      "value": "6/29/1980"
+    },
+    {
+      "id": "2vUp4BAImmIo8a8dsK7N",
+      "value": "1GNSKSKT0PR000000"
+    },
+    {
+      "id": "341K8Jgel1X5J5OrJm4m",
+      "value": "CHEVROLET"
+    },
+    {
+      "id": "8JFsLV5CMbvhzGyRNA5y",
+      "value": "Good"
+    },
+    {
+      "id": "8Pi9pd0vQ3zmZYNvahO8",
+      "value": "JohnEdwards"
+    },
+    {
+      "id": "AWMNPex2qSSme7YK5e4G",
+      "value": "Male"
+    },
+    {
+      "id": "C7istMeqbBJT06ZmM76P",
+      "value": "CHEVROLET"
+    },
+    {
+      "id": "DXe8dPAy1NzqkRYGsBw2",
+      "value": "1GNSKSKT0PR000000"
+    },
+    {
+      "id": "DdpYg3Lo5ioWcPyBnRgJ",
+      "value": "2023"
+    },
+    {
+      "id": "GbIVaeAE4oOe6xygsCp2",
+      "value": "Married"
+    },
+    {
+      "id": "IVPWhlbMASu1hAr6wd6H",
+      "value": "SILVERADO-PICKUP  Owned"
+    },
+    {
+      "id": "L0VsvqGFhyzNSyqWURdf",
+      "value": "500"
+    },
+    {
+      "id": "MWLLTPYeXjWbYvtl2sVV",
+      "value": "Owned"
+    },
+    {
+      "id": "MY5HS0NaK05DraTN2MZY",
+      "value": "PROGRESSIVE"
+    },
+    {
+      "id": "OtNh5tbboo0LMYzSemjk",
+      "value": "48"
+    },
+    {
+      "id": "RnCVSfFKbia26UC6hrpI",
+      "value": "Preferred"
+    },
+    {
+      "id": "WmXgvU3uyJaqYAVuUNy4",
+      "value": "Commute_Work"
+    },
+    {
+      "id": "aTgHXTOzecDIgTm94dtJ",
+      "value": "TAHOE-SPORT UTILITY VEHICLE  Owned"
+    },
+    {
+      "id": "angsInSy7gZlI1xoFz6E",
+      "value": "Valid"
+    },
+    {
+      "id": "aocwICue4fXHKhKc1dZf",
+      "value": "500"
+    },
+    {
+      "id": "auVJAvWpnnYYYzTo3oW9",
+      "value": "2023"
+    },
+    {
+      "id": "bHNx2ZBVrio8qURwWtex",
+      "value": "15000"
+    },
+    {
+      "id": "f4sPNa61EW2yFgEOnLgF",
+      "value": "TAHOE K1500 PREMIER  Distance Driven"
+    },
+    {
+      "id": "nklRSHs53FVK43manawu",
+      "value": "Commute_Work"
+    },
+    {
+      "id": "qclrLfVxDmRh3uv6bMUi",
+      "value": "15000"
+    },
+    {
+      "id": "seNja9CEi7TLhXew64WI",
+      "value": "SILVERADO K3500 HIGH COUNTRY  Distance Driven"
+    },
+    {
+      "id": "tiKOdfrlgVFCAWjqVRA7",
+      "value": "6/29/1980"
+    },
+    {
+      "id": "z9r6fDjPLXxMHOyD2avg",
+      "value": "OtherNonTechnical"
+    },
+    {
+      "id": "zbd63SvyN9iIe1AJcAdh",
+      "value": "100/300/50"
+    },
+    {
+      "id": "6ncmMAXYV3LtQuWGUEEX",
+      "value": "2"
+    },
+    {
+      "id": "k1z0GRuyd38CVlsA4Yq4",
+      "value": "2/14/2026"
+    },
+    {
+      "id": "7xBzSGmZdE56ym3cJlaq",
+      "value": [
+        "Yes"
+      ]
+    },
+    {
+      "id": "jtIe9RfksX8OwZe1eZ45",
+      "value": 1
+    },
+    {
+      "id": "lFJu6utndWOIpT2PqAdX",
+      "value": "0"
+    },
+    {
+      "id": "D1gY1lj17CfHwUIKprgH",
+      "value": 159.17
+    },
+    {
+      "id": "c8kKkhrqtFZbQZDsSXhA",
+      "value": "Progressive"
+    },
+    {
+      "id": "PlMzlSNxxeatyDPujXJH",
+      "value": 159.17
+    },
+    {
+      "id": "jcjjpI2d6lKaHdYBvDqf",
+      "value": 8
+    },
+    {
+      "id": "gcPNZakn3osaRXd1cBg3",
+      "value": "QFEe3vWj4EBUm7pZuRXK"
+    },
+    {
+      "id": "ptniuk8b8iJ7RqyhLOa8",
+      "value": "kayaniel@trustwellinsurance.com"
+    }
+  ],
+  "additionalEmails": [],
+  "additionalPhones": [],
+  "gender": "Male",
+  "maritalStatus": "Married",
+  "occupation": "OtherNonTechnical",
+  "prior_carrier_home": "PROGRESSIVE",
+  "vehicles": [
+    {
+      "year": "2023",
+      "make": "CHEVROLET",
+      "model": "SILVERADO K3500 HIGH COUNTRY  Distance Driven",
+      "submodel": "SILVERADO-PICKUP  Owned",
+      "vin_prefix": "1GNSKSKT0PR000000",
+      "ownership_status": 3,
+      "annual_mileage": 15000,
+      "purchase_date": "03/01/2024"
+    },
+    {
+      "year": "2023",
+      "make": "CHEVROLET",
+      "model": "TAHOE K1500 PREMIER  Distance Driven",
+      "submodel": "TAHOE-SPORT UTILITY VEHICLE  Owned",
+      "vin_prefix": "1GNSKSKT0PR000000",
+      "ownership_status": 3,
+      "annual_mileage": 15000,
+      "purchase_date": "03/01/2024"
+    }
+  ]
+}

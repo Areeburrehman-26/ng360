@@ -31,6 +31,205 @@ STORAGE_STATE_PATH = ARTIFACTS_DIR / "natgen_storage_state.json"
 # Load variables from .env if present (without overriding exported shell vars).
 load_dotenv()
 
+# GA PKGProtect2 Client Info — occupation dropdown only allows these exact option values
+# (GHL free-text occupations must be mapped). See artifacts/client_info_page1.html.
+_NG360_OCCUPATION_CANONICAL = (
+    "Athletes, Entertainers, High Profile Profession",
+    "Journalist",
+    "Military",
+    "Politician",
+    "Student",
+    "Other",
+)
+
+
+def _occupation_value_for_ng360_dropdown(raw: str) -> str:
+    """
+    Map CRM / GHL occupation text to a National General ClientInfo dropdown value.
+    Unknown values fall back to ``Other`` so Playwright can always select a valid option.
+    """
+    s = (raw or "").strip()
+    if not s:
+        return "Other"
+    for canon in _NG360_OCCUPATION_CANONICAL:
+        if s.casefold() == canon.casefold():
+            return canon
+    low = s.lower()
+    if any(
+        k in low
+        for k in (
+            "athlete",
+            "entertain",
+            "actor",
+            "actress",
+            "musician",
+            "celebrit",
+            "performer",
+            "nfl",
+            "nba",
+            "mlb",
+        )
+    ):
+        return "Athletes, Entertainers, High Profile Profession"
+    if any(k in low for k in ("journal", "reporter", "news anchor", "correspondent")):
+        return "Journalist"
+    if any(
+        k in low
+        for k in (
+            "military",
+            "army",
+            "navy",
+            "marine",
+            "air force",
+            "coast guard",
+            "national guard",
+            "veteran",
+            "retired military",
+        )
+    ):
+        return "Military"
+    if any(k in low for k in ("politic", "senator", "congress", "mayor", "governor")):
+        return "Politician"
+    if any(k in low for k in ("student", "college", "university", "undergrad", "graduate student")):
+        return "Student"
+    return "Other"
+
+
+def _years_at_residence_portal_value(raw: Any) -> str:
+    """
+    Map years-at-residence to National General ``ddlYearsAtAddress`` option values.
+    The portal only offers 0,1,2,3 and 99 (displayed as >3). Any 4+ must use ``99``.
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return "3"
+    try:
+        n = int(float(str(raw).strip().replace(",", "")))
+    except (TypeError, ValueError):
+        return "3"
+    if n < 0:
+        return "0"
+    if n <= 3:
+        return str(n)
+    return "99"
+
+
+# Property page (National General) — dropdown option values for #MainContent_ddlNumberOfStories
+_NG360_STORIES_VALUES = frozenset(
+    {"1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5", "1.75", "2.75", "3.75", "4.75"}
+)
+
+# Substring hints -> exact ``ddlPriorInsuranceCompany`` option value (must exist in portal list).
+_PRIOR_CARRIER_ALIAS_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("allstate", "Allstate Ins Co"),
+    ("state farm", "State Farm Group"),
+    ("geico", "GEICO"),
+    ("progressive", "Progressive Group"),
+    ("liberty mutual", "Liberty Mutual Insurance Cos"),
+    ("farmers", "Farmers"),
+    ("usaa", "USAA Group"),
+    ("travelers", "Travelers Prop Cas Group"),
+    ("nationwide", "Nationwide Group"),
+    ("hartford", "Hartford Insurance Gr"),
+    ("safeco", "Safeco Insurance Companies"),
+    ("national general", "National General Ins Co"),
+    ("natgen", "National General Ins Co"),
+    ("chubb", "Chubb"),
+    ("american family", "American Family"),
+    ("erie", "Erie/Niagara"),
+)
+
+_PRIOR_CARRIER_FALLBACK_VALUE = "Other Standard"
+
+_BRIDGEBOT_EXPECTED_CONTACT_FIELDS: tuple[str, ...] = (
+    "id",
+    "firstName",
+    "lastName",
+    "postalCode",
+    "dateOfBirth",
+    "gender",
+    "maritalStatus",
+    "occupation",
+    "phone",
+    "address1",
+    "city",
+    "email",
+    "driverLicenseNumber",
+    "prior_carrier_home",
+    "year_built",
+    "square_footage",
+    "number_of_stories",
+    "years_at_residence",
+    "datePurchased",
+    "effective_date",
+    "prior_expiration",
+    "years_continuous_ins",
+    "vehicles",
+)
+
+
+def _year_built_portal_value(raw: Any) -> str:
+    """4-digit year for ``#MainContent_txtYearBuilt``."""
+    default = "1995"
+    cy = datetime.now().year
+    if raw is None or (isinstance(raw, str) and not str(raw).strip()):
+        return default
+    digits = re.sub(r"\D", "", str(raw).strip())
+    if len(digits) >= 4:
+        y = int(digits[:4])
+    elif len(digits) == 2:
+        y = 2000 + int(digits)
+        if y > cy + 1:
+            y = 1900 + int(digits)
+    else:
+        return default
+    if y < 1800 or y > cy + 1:
+        return default
+    return str(y)
+
+
+def _square_footage_portal_value(raw: Any) -> str:
+    """Digits only or one decimal place for ``#MainContent_txtSquareFootage``."""
+    default = "2200"
+    if raw is None or (isinstance(raw, str) and not str(raw).strip()):
+        return default
+    s = str(raw).strip().replace(",", "")
+    if re.fullmatch(r"\d+(?:\.\d)?", s):
+        return s
+    m = re.search(r"\d+(?:\.\d)?", s)
+    return m.group(0) if m else default
+
+
+def _number_of_stories_portal_value(raw: Any) -> str:
+    """Map CRM text to ``ddlNumberOfStories`` option value; default ``2``."""
+    default = "2"
+    if raw is None or str(raw).strip() == "":
+        return default
+    s0 = str(raw).strip()
+    if s0 in _NG360_STORIES_VALUES:
+        return s0
+    m = re.search(r"\d+(?:\.\d+)?", s0.replace(",", "."))
+    s = m.group(0) if m else s0
+    if s in _NG360_STORIES_VALUES:
+        return s
+    try:
+        f = float(s)
+        if float(int(f)) == f:
+            si = str(int(f))
+            if si in _NG360_STORIES_VALUES:
+                return si
+        for fmt in (lambda x: f"{x:g}", lambda x: str(x)):
+            cand = fmt(f)
+            if cand in _NG360_STORIES_VALUES:
+                return cand
+    except (TypeError, ValueError):
+        pass
+    low = s0.lower()
+    if any(w in low for w in ("single", "one story", "1 story")):
+        return "1"
+    if "three" in low or s0.strip() == "3":
+        return "3"
+    return default
+
 
 class NG360BridgeBot:
 
@@ -55,6 +254,7 @@ class NG360BridgeBot:
     # ── Main entry point ──────────────────────────────────────────────
 
     async def run(self) -> dict:
+        self._log_input_field_summary()
         pw = await async_playwright().start()
         browser = await pw.chromium.launch(headless=False, args=["--start-maximized"])
         context_kwargs: dict[str, Any] = {"accept_downloads": True, "viewport": None}
@@ -133,6 +333,35 @@ class NG360BridgeBot:
             await browser.close()
             await pw.stop()
             self._log("OK", "Browser closed")
+
+    def _log_input_field_summary(self) -> None:
+        """
+        Print which expected contact fields are present vs missing at run start.
+        """
+        present: list[str] = []
+        missing: list[str] = []
+
+        for key in _BRIDGEBOT_EXPECTED_CONTACT_FIELDS:
+            if key == "vehicles":
+                vehicles = self.contact.get("vehicles")
+                has_vehicles = isinstance(vehicles, list) and any(isinstance(v, dict) for v in vehicles)
+                (present if has_vehicles else missing).append(key)
+                continue
+
+            value = self.contact.get(key)
+            if value is None:
+                missing.append(key)
+                continue
+            if isinstance(value, str):
+                if value.strip():
+                    present.append(key)
+                else:
+                    missing.append(key)
+                continue
+            present.append(key)
+
+        self._log("INFO", f"Input fields present ({len(present)}): {', '.join(present) if present else 'none'}")
+        self._log("INFO", f"Input fields missing ({len(missing)}): {', '.join(missing) if missing else 'none'}")
 
     # ── Login ─────────────────────────────────────────────────────────
 
@@ -281,7 +510,24 @@ class NG360BridgeBot:
         await p.fill("#MainContent_ucNamedInsured_txtDateOfBirth", dob)
         await p.select_option("#MainContent_ucNamedInsured_ddlGender", self._val("gender"))
         await p.select_option("#MainContent_ucNamedInsured_ddlMaritalStatus", self._val("maritalStatus", "marital_status"))
-        await p.select_option("#MainContent_ucNamedInsured_ddlOccupation", self._val("occupation"))
+
+        occ_raw = self._val("occupation")
+        occ_val = _occupation_value_for_ng360_dropdown(occ_raw)
+        if occ_val != occ_raw.strip():
+            self._log("INFO", f"Occupation mapped for NG360 dropdown: {occ_raw!r} -> {occ_val!r}")
+        occ_fallback = await self._select_strict_dropdown(
+            "#MainContent_ucNamedInsured_ddlOccupation", occ_val
+        )
+        # When "Other" is selected, some renders expose a free-text description — fill from CRM if present.
+        if occ_val == "Other" or occ_fallback:
+            other_txt = p.locator("#MainContent_ucNamedInsured_txtOtherOccupation")
+            if await other_txt.count() > 0:
+                try:
+                    raw_note = occ_raw.strip()
+                    if raw_note and raw_note.casefold() != "other":
+                        await other_txt.fill(raw_note[:120])
+                except Exception:
+                    pass
 
         await p.select_option("#MainContent_ucContactInfo_ucPhoneNumber_ddlPhoneType", "Cell")
         await p.fill("#MainContent_ucContactInfo_ucPhoneNumber_txtAreaCode", area)
@@ -290,7 +536,13 @@ class NG360BridgeBot:
 
         await p.fill("#MainContent_ucResidentialAddress_txtAddress", self._val("address1", "address"))
         await p.fill("#MainContent_ucResidentialAddress_txtCity", self._val("city"))
-        await p.select_option("#MainContent_ddlYearsAtAddress", str(self.contact.get("years_at_residence", 5)))
+        y_raw = self.contact.get("years_at_residence", 3)
+        y_val = _years_at_residence_portal_value(y_raw)
+        if str(y_raw).strip() != y_val:
+            self._log("INFO", f"Years at residence mapped for portal: {y_raw!r} -> {y_val!r}")
+        await self._select_strict_dropdown(
+            "#MainContent_ddlYearsAtAddress", y_val, fallback_value="3"
+        )
 
         email = self._val("email")
         await p.select_option("#MainContent_ucContactInfo_ucEmailAddress_ddlEmailOption", "Provided")
@@ -396,6 +648,27 @@ class NG360BridgeBot:
         }
         for sel, val in fields.items():
             await p.select_option(sel, val)
+
+        yb = _year_built_portal_value(self.contact.get("year_built") or self.contact.get("yearBuilt"))
+        await p.fill("#MainContent_txtYearBuilt", yb)
+
+        sq = _square_footage_portal_value(
+            self.contact.get("square_footage")
+            or self.contact.get("squareFootage")
+            or self.contact.get("sqft")
+        )
+        await p.fill("#MainContent_txtSquareFootage", sq)
+
+        st = _number_of_stories_portal_value(
+            self.contact.get("number_of_stories")
+            or self.contact.get("num_stories")
+            or self.contact.get("stories")
+        )
+        try:
+            await p.select_option("#MainContent_ddlNumberOfStories", st)
+        except Exception:
+            await p.select_option("#MainContent_ddlNumberOfStories", "2")
+
         date_purchased = self.contact.get("datePurchased") or self.contact.get("date_purchased") or "04/15/2024"
         await p.fill("#MainContent_txtDatePurchased", self._date(str(date_purchased)))
         await p.fill("#MainContent_txtYearRoofRenovation", "2020")
@@ -416,24 +689,258 @@ class NG360BridgeBot:
             if err:
                 raise RuntimeError(f"Property validation blocked continue: {err}")
 
+    async def _select_prior_insurance_company(self, p: Page) -> None:
+        """
+        Map CRM prior-carrier text to ``ddlPriorInsuranceCompany`` options (200+ exact values).
+        Uses DOM option list + fuzzy match; falls back to Other Standard.
+        """
+        sel = "#MainContent_ucPriorPolicyInformation_ddlPriorInsuranceCompany"
+        raw = (
+            self.contact.get("prior_carrier_home")
+            or self.contact.get("prior_carrier")
+            or self.contact.get("current_insurer")
+            or self.contact.get("current_home_carrier")
+            or ""
+        )
+        raw_s = str(raw).strip()
+
+        loc = p.locator(sel)
+        await loc.wait_for(state="visible", timeout=15000)
+
+        options: list[dict[str, str]] = await loc.evaluate(
+            """el => Array.from(el.options)
+                .filter(o => o.value && o.value !== '-1')
+                .map(o => ({ v: o.value, t: (o.textContent || '').trim() }))"""
+        )
+        if not options:
+            raise RuntimeError("Prior insurance company dropdown has no selectable options")
+
+        def norm(s: str) -> str:
+            s2 = str(s).replace("&amp;", " and ").replace("&", " and ")
+            return re.sub(r"\s+", " ", s2.lower()).strip()
+
+        nr = norm(raw_s) if raw_s else ""
+
+        async def pick_by_value(value: str, log: str | None = None) -> bool:
+            try:
+                await loc.select_option(value=value, timeout=10000)
+                if log:
+                    self._log("INFO", log)
+                return True
+            except Exception:
+                try:
+                    await loc.select_option(label=value, timeout=5000)
+                    if log:
+                        self._log("INFO", log)
+                    return True
+                except Exception:
+                    return False
+
+        if not raw_s:
+            ok = await pick_by_value(
+                _PRIOR_CARRIER_FALLBACK_VALUE,
+                f"Prior carrier not set; using {_PRIOR_CARRIER_FALLBACK_VALUE!r}",
+            )
+            if ok:
+                return
+
+        for o in options:
+            if o["v"] == raw_s or o["t"] == raw_s:
+                await loc.select_option(value=o["v"], timeout=10000)
+                return
+        for o in options:
+            if norm(o["v"]) == nr or norm(o["t"]) == nr:
+                self._log("INFO", f"Prior carrier matched (case-insensitive): {raw_s!r} -> {o['v']!r}")
+                await loc.select_option(value=o["v"], timeout=10000)
+                return
+
+        for needle, canon in _PRIOR_CARRIER_ALIAS_PREFIXES:
+            if needle in nr and await pick_by_value(canon, f"Prior carrier alias {needle!r} -> {canon!r}"):
+                return
+
+        if len(nr) >= 4:
+            for o in options:
+                nv, nt = norm(o["v"]), norm(o["t"])
+                if nr in nt or nr in nv:
+                    self._log("INFO", f"Prior carrier substring match: {raw_s!r} -> {o['v']!r}")
+                    await loc.select_option(value=o["v"], timeout=10000)
+                    return
+            for o in options:
+                nv, nt = norm(o["v"]), norm(o["t"])
+                if len(nt) >= 6 and (nt in nr or (len(nv) >= 6 and nv in nr)):
+                    self._log("INFO", f"Prior carrier label contained in CRM text: {raw_s!r} -> {o['v']!r}")
+                    await loc.select_option(value=o["v"], timeout=10000)
+                    return
+
+        self._log("WARN", f"No prior carrier match for {raw_s!r}; using {_PRIOR_CARRIER_FALLBACK_VALUE!r}")
+        if await pick_by_value(_PRIOR_CARRIER_FALLBACK_VALUE, None):
+            return
+
+        await loc.select_option(value=options[0]["v"], timeout=10000)
+        self._log("WARN", f"Prior carrier fallback used first list entry: {options[0]['v']!r}")
+
     async def _fill_underwriting(self) -> None:
         p = self._p()
         expiry = self._date(str(self.contact.get("prior_expiration", "03/31/2026")))
 
         await p.select_option("#MainContent_ucPriorPolicyInformation_ddlPriorInsuranceCoverage", "Prior standard insurance")
-        await p.select_option("#MainContent_ucPriorPolicyInformation_ddlPriorInsuranceCompany", str(self.contact.get("prior_carrier_home", "Allstate Ins Co")))
+        await self._select_prior_insurance_company(p)
         await p.fill("#MainContent_ucPriorPolicyInformation_txtExpirationDate", expiry)
         await p.fill("#MainContent_ucPriorPolicyInformation_txtContinuousInsurance", str(self.contact.get("years_continuous_ins", 1)))
         await p.click("#MainContent_btnContinue")
         await p.wait_for_load_state("networkidle")
 
+    async def _answer_additional_coverage_questions(self, p: Page) -> None:
+        """
+        Coverage sometimes shows Additional Questions first (e.g. paved / year-round road access).
+        Those must be answered before ``#MainContent_ddlPerils`` appears. Default: Yes / True.
+        """
+        combined = re.compile(
+            r"(accessible|accesible).{0,80}(year|round|road)"
+            r"|(paved|plowed|maintained.{0,40}road)"
+            r"|(additional\s+questions.{0,120}(?:#?\s*1|question\s*1))"
+            r"|(is\s+the\s+home\s+.{0,60}accessible)",
+            re.I | re.S,
+        )
+
+        async def yes_select(sel: Any) -> bool:
+            if await sel.count() == 0:
+                return False
+            try:
+                tag = await sel.evaluate("el => el.tagName.toLowerCase()")
+            except Exception:
+                return False
+            if tag != "select":
+                return False
+            cur = (await sel.input_value()).strip()
+            if cur not in ("", "-1"):
+                return True
+            for val in ("True", "Yes", "Y", "1"):
+                try:
+                    await sel.select_option(value=val, timeout=5000)
+                    self._log("INFO", f"Additional coverage question -> select value={val!r}")
+                    await p.wait_for_load_state("networkidle")
+                    return True
+                except Exception:
+                    continue
+            for lab in ("Yes", "Y"):
+                try:
+                    await sel.select_option(label=lab, timeout=5000)
+                    self._log("INFO", f"Additional coverage question -> select label={lab!r}")
+                    await p.wait_for_load_state("networkidle")
+                    return True
+                except Exception:
+                    continue
+            return False
+
+        async def yes_radio(li: Any) -> bool:
+            if await li.count() == 0:
+                return False
+            for val in ("True", "Yes", "1"):
+                r = li.locator(f"input[type='radio'][value='{val}']").first
+                if await r.count() > 0:
+                    await r.check(timeout=5000)
+                    self._log("INFO", f"Additional coverage radio -> {val!r}")
+                    await p.wait_for_load_state("networkidle")
+                    return True
+            yes_lbl = li.locator("label").filter(has_text=re.compile(r"^\s*yes\s*$", re.I)).first
+            if await yes_lbl.count() > 0:
+                await yes_lbl.click(timeout=5000)
+                self._log("INFO", "Additional coverage radio -> clicked Yes label")
+                await p.wait_for_load_state("networkidle")
+                return True
+            return False
+
+        lbls = p.locator("label")
+        n = await lbls.count()
+        for i in range(min(n, 600)):
+            lb = lbls.nth(i)
+            try:
+                txt = (await lb.inner_text()).strip()
+            except Exception:
+                continue
+            if not txt or not combined.search(re.sub(r"\s+", " ", txt)):
+                continue
+            fid = await lb.get_attribute("for")
+            filled = False
+            if fid:
+                tg = p.locator(f"#{fid}")
+                filled = await yes_select(tg)
+            if not filled:
+                li = lb.locator("xpath=ancestor::li[1]")
+                filled = await yes_radio(li)
+                if not filled:
+                    filled = await yes_select(li.locator("select").first)
+            if filled:
+                self._log("INFO", f"Additional coverage label matched: {txt[:100]!r}")
+
     async def _fill_coverage(self) -> None:
         p = self._p()
-        await p.select_option("#MainContent_ddlPerils", "0.010")
-        await p.select_option("#MainContent_ddlNamedStormDeductible", "0.020")
-        await p.select_option("#MainContent_ddlWindstormDeductible", "0.020")
+        await self._answer_additional_coverage_questions(p)
+
+        perils_sel = "#MainContent_ddlPerils"
+        storm_sel = "#MainContent_ddlNamedStormDeductible"
+        wind_sel = "#MainContent_ddlWindstormDeductible"
+
+        try:
+            await p.wait_for_selector(perils_sel, state="visible", timeout=90000)
+        except PlaywrightTimeoutError:
+            self._log("WARN", "Perils dropdown not visible yet; retrying additional questions + wait")
+            await self._answer_additional_coverage_questions(p)
+            await p.wait_for_selector(perils_sel, state="visible", timeout=90000)
+
+        try:
+            await p.locator(perils_sel).scroll_into_view_if_needed()
+        except Exception:
+            pass
+
+        async def pick_dropdown(selector: str, preferred: str, fallbacks: tuple[str, ...]) -> None:
+            loc = p.locator(selector)
+            for val in (preferred,) + fallbacks:
+                try:
+                    await loc.select_option(value=val, timeout=20000)
+                    return
+                except Exception:
+                    continue
+            opts: list[str] = await loc.evaluate(
+                """el => [...el.options].filter(o => o.value && o.value !== '-1').map(o => o.value)"""
+            )
+            if opts:
+                await loc.select_option(value=opts[0], timeout=20000)
+                self._log("WARN", f"{selector}: using first available option {opts[0]!r}")
+
+        await pick_dropdown(perils_sel, "0.010", ("0.01",))
+        await pick_dropdown(storm_sel, "0.020", ("0.02",))
+        await pick_dropdown(wind_sel, "0.020", ("0.02",))
+
+        # Some products require Coverage A on this page before allowing navigation.
+        cov_a = p.locator("#MainContent_ucCoreCoverages_rptCoreCoverages_txtCovA_0")
+        if await cov_a.count() > 0:
+            current_cov_a = (await cov_a.input_value()).strip()
+            if not current_cov_a:
+                await cov_a.fill("350000")
+                try:
+                    # ASP.NET pages often require blur/change to trigger postback validation.
+                    await cov_a.evaluate(
+                        """el => {
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                            el.blur();
+                        }"""
+                    )
+                except Exception:
+                    pass
+                self._log("INFO", "Coverage A empty; defaulted to 350000")
+                await p.wait_for_load_state("networkidle")
+
         await p.click("#MainContent_btnContinue")
         await p.wait_for_load_state("networkidle")
+
+        # If still on coverage, surface server validation early.
+        if "Coverage" in p.url and await p.locator("#lstErrors li").count() > 0:
+            err = (await p.locator("#lstErrors").inner_text()).strip()
+            if err:
+                raise RuntimeError(f"Coverage validation blocked continue: {err}")
 
     async def _fill_driver(self) -> None:
         p = self._p()
@@ -473,6 +980,11 @@ class NG360BridgeBot:
             if await p.locator(selector).count() == 0:
                 return
             field = p.locator(selector)
+            try:
+                if not await field.first.is_visible():
+                    return
+            except Exception:
+                return
             current = (await field.input_value()).strip()
             if current != value:
                 try:
@@ -487,6 +999,16 @@ class NG360BridgeBot:
 
         async def _set_required_select(selector: str, value: str, label: str, wait_postback: bool = False) -> None:
             # Some DriverInfo fields are re-rendered by ASP.NET postbacks; retry once.
+            if await p.locator(selector).count() == 0:
+                return
+            # Driver page includes conditional questions rendered but hidden via CSS.
+            # Hidden controls should not be treated as required.
+            try:
+                if not await p.locator(selector).first.is_visible():
+                    self._log("INFO", f"Driver field hidden; skipping required select: {label}")
+                    return
+            except Exception:
+                return
             for _ in range(2):
                 await _select_if_present(selector, value, wait_postback=wait_postback, label_fallback=label)
                 current = (await p.locator(selector).input_value()).strip()
@@ -494,23 +1016,116 @@ class NG360BridgeBot:
                     return
             raise RuntimeError(f"Driver field still unselected after fill: {label}")
 
+        async def _force_active_license_status() -> None:
+            """
+            Always keep Driver License Status on Active.
+            ASP.NET postbacks can reset this field mid-step.
+            """
+            sel = "#MainContent_ddlDriversLicenseStatus"
+            if await p.locator(sel).count() == 0:
+                return
+            for _ in range(3):
+                try:
+                    await p.locator(sel).select_option(value="Active")
+                except Exception:
+                    try:
+                        await p.locator(sel).select_option(label="Active")
+                    except Exception:
+                        pass
+                current = (await p.locator(sel).input_value()).strip()
+                if current == "Active":
+                    return
+                await p.wait_for_timeout(250)
+            raise RuntimeError("Driver License Status could not be forced to Active")
+
+        async def _force_losses_in_5_years_no() -> None:
+            """
+            Keep 'Have you had any losses in the past 5 years?' on No/False.
+            This field can be reset by postbacks on DriverInfo.
+            """
+            sel = "#MainContent_ddlLossesIn5Years"
+            if await p.locator(sel).count() == 0:
+                return
+            try:
+                if not await p.locator(sel).first.is_visible():
+                    return
+            except Exception:
+                return
+            for _ in range(3):
+                try:
+                    await p.locator(sel).select_option(value="False")
+                except Exception:
+                    try:
+                        await p.locator(sel).select_option(label="No")
+                    except Exception:
+                        pass
+                current = (await p.locator(sel).input_value()).strip()
+                if current == "False":
+                    return
+                await p.wait_for_timeout(250)
+            raise RuntimeError("Losses in 5 Years could not be forced to No/False")
+
         async def _require_selected(selector: str, friendly: str) -> None:
             if await p.locator(selector).count() == 0:
+                return
+            try:
+                if not await p.locator(selector).first.is_visible():
+                    return
+            except Exception:
                 return
             current = (await p.locator(selector).input_value()).strip()
             if current in ("", "-1"):
                 raise RuntimeError(f"Driver field still unselected after fill: {friendly}")
 
-        # Match contractor brief sequence for DriverInfo page.
-        await _select_if_present("#MainContent_ddlOperatorType", "Operator", wait_postback=True, label_fallback="Operator")
-        await _set_required_select("#MainContent_ddlLossesIn5Years", "False", "Losses in 5 years")
-        await _set_required_select("#MainContent_ddlDefensiveDriverCourse", "False", "Defensive Driver Course", wait_postback=True)
-        await _select_if_present("#MainContent_ddlConnectedDriverOptIn", "False", label_fallback="No")
-        await _set_required_select("#MainContent_ddlDriversLicenseStatus", "Active", "Driver License Status", wait_postback=True)
-        await _select_if_present("#MainContent_ddlLicenseState", "GA")
-        await _require_selected("#MainContent_ddlDriversLicenseStatus", "Driver License Status")
-        await _require_selected("#MainContent_ddlDefensiveDriverCourse", "Defensive Driver Course")
-        await _require_selected("#MainContent_ddlLossesIn5Years", "Losses in 5 Years")
+        async def _fill_driver_required_fields_once() -> None:
+            # Match contractor brief sequence for DriverInfo page.
+            await _select_if_present("#MainContent_ddlOperatorType", "Operator", wait_postback=True, label_fallback="Operator")
+            await _set_required_select("#MainContent_ddlLossesIn5Years", "False", "Losses in 5 years")
+            await _force_losses_in_5_years_no()
+            await _set_required_select("#MainContent_ddlDefensiveDriverCourse", "False", "Defensive Driver Course", wait_postback=True)
+            await _select_if_present("#MainContent_ddlConnectedDriverOptIn", "False", label_fallback="No")
+            await _set_required_select("#MainContent_ddlDriversLicenseStatus", "Active", "Driver License Status", wait_postback=True)
+            await _force_active_license_status()
+            await _select_if_present("#MainContent_ddlLicenseState", "GA")
+            await _force_active_license_status()
+
+        async def _driver_missing_required_fields() -> list[str]:
+            missing: list[str] = []
+            checks = (
+                ("#MainContent_ddlDriversLicenseStatus", "Driver License Status"),
+                ("#MainContent_ddlDefensiveDriverCourse", "Defensive Driver Course"),
+                ("#MainContent_ddlLossesIn5Years", "Losses in 5 Years"),
+            )
+            for selector, label in checks:
+                if await p.locator(selector).count() == 0:
+                    continue
+                try:
+                    if not await p.locator(selector).first.is_visible():
+                        continue
+                except Exception:
+                    continue
+                cur = (await p.locator(selector).input_value()).strip()
+                if cur in ("", "-1"):
+                    missing.append(label)
+            return missing
+
+        # Fill -> verify -> refill loop (up to 2 retries) for flaky postback resets.
+        missing_after_fill: list[str] = []
+        for attempt in range(3):
+            await _fill_driver_required_fields_once()
+            missing_after_fill = await _driver_missing_required_fields()
+            if not missing_after_fill:
+                break
+            if attempt < 2:
+                self._log(
+                    "WARN",
+                    f"Driver required fields reset after fill (attempt {attempt + 1}/3): {', '.join(missing_after_fill)}; retrying",
+                )
+                await p.wait_for_timeout(300)
+        if missing_after_fill:
+            raise RuntimeError(
+                f"Driver field(s) still unselected after retries: {', '.join(missing_after_fill)}"
+            )
 
         # When status is Active, carriers can require a state-specific license format.
         if await p.locator("#MainContent_txtDriversLicenseNumber").count() > 0:
@@ -533,35 +1148,73 @@ class NG360BridgeBot:
                 await p.fill("#MainContent_txtDriversLicenseNumber", lic_to_use)
 
         if await p.locator("#MainContent_btnSaveDriver").count() > 0:
+            # Final guard: status can be reset by late ASP.NET postbacks right before Save.
+            await _force_active_license_status()
+            await _force_losses_in_5_years_no()
             await p.click("#MainContent_btnSaveDriver")
             await p.wait_for_load_state("networkidle")
             if await p.locator("#lstErrors li").count() > 0:
                 err = (await p.locator("#lstErrors").inner_text()).strip()
                 if err:
+                    self._log("WARN", f"Driver save returned validation error(s): {err}")
+                    # Don't rely on exact server error wording; validate critical dropdowns directly.
+                    needs_retry = False
+                    if await p.locator("#MainContent_ddlDriversLicenseStatus").count() > 0:
+                        st = (await p.locator("#MainContent_ddlDriversLicenseStatus").input_value()).strip()
+                        if st in ("", "-1"):
+                            needs_retry = True
+                            self._log("WARN", "Driver license status reset by page; forcing Active")
+                            await _force_active_license_status()
+                    if await p.locator("#MainContent_ddlLossesIn5Years").count() > 0:
+                        ls = (await p.locator("#MainContent_ddlLossesIn5Years").input_value()).strip()
+                        if ls in ("", "-1"):
+                            needs_retry = True
+                            self._log("WARN", "Losses-in-5-years reset by page; forcing No/False")
+                            await _force_losses_in_5_years_no()
+                    if needs_retry:
+                        self._log("WARN", "Re-saving driver after correcting required dropdown values")
+                        await p.click("#MainContent_btnSaveDriver")
+                        await p.wait_for_load_state("networkidle")
+                        if await p.locator("#lstErrors li").count() > 0:
+                            err = (await p.locator("#lstErrors").inner_text()).strip()
                     raise RuntimeError(f"Driver save blocked by validation: {err}")
 
         continue_btn = p.locator("#MainContent_btnContinue, input[name$='btnContinue']").first
-        # Edit form has Save/Cancel (no visible Next). Return to schedule page first.
-        if not await continue_btn.is_visible() and await p.locator("#MainContent_btnCancel").count() > 0:
-            await p.click("#MainContent_btnCancel")
-            await p.wait_for_load_state("networkidle")
-            try:
-                await p.wait_for_selector("#MainContent_gvDrivers", state="visible", timeout=15000)
-            except PlaywrightTimeoutError:
-                pass
+
+        async def _safe_delete_driver_rows(max_attempts: int = 5) -> None:
+            """
+            Best-effort cleanup for placeholder driver rows.
+            Delete postbacks can be flaky; never fail Driver step on delete timeout.
+            """
+            if await p.locator("#MainContent_gvDrivers").count() == 0:
+                return
+            for _ in range(max_attempts):
+                delete_links = p.locator("#MainContent_gvDrivers a:has-text('Delete')")
+                if await delete_links.count() == 0:
+                    return
+                try:
+                    await delete_links.first.click(timeout=7000)
+                except Exception:
+                    # Fallback to JS click when Playwright click waits on flaky navigation.
+                    try:
+                        await p.evaluate(
+                            """() => {
+                                const el = document.querySelector("#MainContent_gvDrivers a");
+                                if (el && /delete/i.test(el.textContent || "")) el.click();
+                            }"""
+                        )
+                    except Exception:
+                        self._log("WARN", "Driver row delete skipped due to unstable postback")
+                        return
+                try:
+                    await p.wait_for_load_state("networkidle", timeout=8000)
+                except Exception:
+                    # Some postbacks complete without reaching networkidle; continue best-effort.
+                    await p.wait_for_timeout(500)
 
         # Remove extra prefill drivers that have a Delete action (typically uninitialized),
         # otherwise downstream Vehicle step can be blocked by driver validation.
-        if await p.locator("#MainContent_gvDrivers").count() > 0:
-            for _ in range(5):
-                delete_links = p.locator("#MainContent_gvDrivers a:has-text('Delete')")
-                if await delete_links.count() == 0:
-                    break
-                try:
-                    await delete_links.first.click(timeout=10000)
-                    await p.wait_for_load_state("networkidle")
-                except Exception:
-                    break
+        await _safe_delete_driver_rows()
 
         # T&C modal: brief says click the T&C link/legend to open, then check box.
         try:
@@ -590,23 +1243,52 @@ class NG360BridgeBot:
             self._log("WARN", f"Connected Driver Agreement skipped: {exc}")
 
         async def _click_next() -> None:
-            if await continue_btn.is_visible():
-                await continue_btn.click()
-            else:
-                await p.click("input[value='Next'], #MainContent_btnContinue")
-            await p.wait_for_load_state("networkidle")
+            # Driver pages can alternate between edit and schedule layouts.
+            # Try common Next/Continue controls first, then try Save (never Cancel bounce-back).
+            next_selectors = (
+                "#MainContent_btnContinue",
+                "input[name$='btnContinue']",
+                "input[value='Next']",
+                "button:has-text('Next')",
+                "button:has-text('Continue')",
+            )
+            for sel in next_selectors:
+                loc = p.locator(sel).first
+                try:
+                    if await loc.count() > 0 and await loc.is_visible():
+                        await loc.click(timeout=10000)
+                        await p.wait_for_load_state("networkidle")
+                        return
+                except Exception:
+                    continue
+
+            # If still in edit form with Save visible, persist first and then look for Continue.
+            if await p.locator("#MainContent_btnSaveDriver").count() > 0:
+                try:
+                    await _force_active_license_status()
+                    await _force_losses_in_5_years_no()
+                    await p.click("#MainContent_btnSaveDriver", timeout=10000)
+                    await p.wait_for_load_state("networkidle")
+                except Exception:
+                    pass
+                for sel in ("#MainContent_btnContinue", "input[name$='btnContinue']", "input[value='Next']"):
+                    loc = p.locator(sel).first
+                    try:
+                        if await loc.count() > 0 and await loc.is_visible():
+                            await loc.click(timeout=10000)
+                            await p.wait_for_load_state("networkidle")
+                            return
+                    except Exception:
+                        continue
+
+            raise RuntimeError("Driver step could not find a clickable Next/Continue control after save retry")
 
         await _click_next()
         if "DriverInfo" in p.url and await p.locator("#lstErrors li").count() > 0:
             err = (await p.locator("#lstErrors").inner_text()).strip()
             if "All driver information must be completed" in err:
                 # Recovery path: remove any remaining deletable rows and retry Next once.
-                for _ in range(5):
-                    delete_links = p.locator("#MainContent_gvDrivers a:has-text('Delete')")
-                    if await delete_links.count() == 0:
-                        break
-                    await delete_links.first.click(timeout=10000)
-                    await p.wait_for_load_state("networkidle")
+                await _safe_delete_driver_rows()
                 await _click_next()
 
     async def _fill_vehicles(self) -> None:
@@ -797,7 +1479,109 @@ class NG360BridgeBot:
             await p.wait_for_load_state("networkidle")
 
         async def _fill_vehicle_base(v: dict) -> None:
-            await _force_select("#MainContent_ucVehicleInfo_ddlAutoRentedToOthers", "False", "No")
+            async def _postback(event_target: str) -> None:
+                try:
+                    await p.evaluate(
+                        """(target) => {
+                            if (typeof window.__doPostBack === "function") {
+                                window.__doPostBack(target, "");
+                            }
+                        }""",
+                        event_target,
+                    )
+                    await p.wait_for_load_state("networkidle")
+                except Exception:
+                    pass
+
+            async def _select_vehicle_dropdown(
+                selector: str,
+                *,
+                preferred: str | None = None,
+                postback_target: str | None = None,
+            ) -> None:
+                if await p.locator(selector).count() == 0:
+                    return
+                loc = p.locator(selector).first
+                options = await loc.evaluate(
+                    """el => Array.from(el.options || []).map(o => ({
+                        value: (o.value || "").trim(),
+                        label: (o.textContent || "").trim()
+                    }))"""
+                )
+                valid = [o for o in options if o.get("value") and o.get("value") != "-1"]
+                if not valid:
+                    if postback_target:
+                        await _postback(postback_target)
+                    return
+
+                chosen_value: str | None = None
+                pref = (preferred or "").strip().lower()
+                if pref:
+                    for o in valid:
+                        if o["value"].strip().lower() == pref:
+                            chosen_value = o["value"]
+                            break
+                    if not chosen_value:
+                        for o in valid:
+                            if o["label"].strip().lower() == pref:
+                                chosen_value = o["value"]
+                                break
+                    if not chosen_value:
+                        for o in valid:
+                            if pref in o["label"].strip().lower():
+                                chosen_value = o["value"]
+                                break
+                if not chosen_value:
+                    chosen_value = valid[0]["value"]
+
+                await loc.select_option(value=chosen_value)
+                await p.wait_for_load_state("networkidle")
+                if postback_target:
+                    await _postback(postback_target)
+
+            year_raw = (
+                v.get("year")
+                or v.get("model_year")
+                or v.get("vehicle_year")
+                or v.get("Year")
+                or ""
+            )
+            year_digits = re.sub(r"\D", "", str(year_raw))
+            if len(year_digits) >= 4:
+                year_to_use = year_digits[:4]
+            else:
+                year_to_use = str(datetime.now().year - 1)
+            if await p.locator("#MainContent_ucVehicleInfo_txtYear").count() > 0:
+                year_field = p.locator("#MainContent_ucVehicleInfo_txtYear").first
+                await year_field.fill(year_to_use)
+                await year_field.evaluate(
+                    """el => {
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                        el.blur();
+                    }"""
+                )
+                await _postback("ctl00$MainContent$ucVehicleInfo$txtYear")
+
+            await _select_vehicle_dropdown(
+                "#MainContent_ucVehicleInfo_ddlSuspensionIndicator",
+                preferred="False",
+            )
+            await _select_vehicle_dropdown(
+                "#MainContent_ucVehicleInfo_ddlMake",
+                preferred=str(v.get("make", "") or ""),
+                postback_target="ctl00$MainContent$ucVehicleInfo$ddlMake",
+            )
+            await _select_vehicle_dropdown(
+                "#MainContent_ucVehicleInfo_ddlModel",
+                preferred=str(v.get("model", "") or ""),
+                postback_target="ctl00$MainContent$ucVehicleInfo$ddlModel",
+            )
+
+            await _select_vehicle_dropdown(
+                "#MainContent_ucVehicleInfo_ddlAutoRentedToOthers",
+                preferred="False",
+            )
             await _force_select("#MainContent_ucVehicleInfo_ddlVehicleWeightBetween14kAnd16k", "False", "No")
             await _force_select("#MainContent_ucVehicleInfo_ddlCamperIncluded", "False", "No")
             await _force_select(
@@ -1390,6 +2174,57 @@ class NG360BridgeBot:
         mmddyyyy = format_date_to_mmddyyyy(raw)
         return f"{mmddyyyy[0:2]}/{mmddyyyy[2:4]}/{mmddyyyy[4:8]}"
 
+    async def _select_strict_dropdown(
+        self,
+        selector: str,
+        value: str,
+        *,
+        fallback_value: str | None = "Other",
+    ) -> bool:
+        """
+        Select by ``value`` or visible ``label``; on failure optionally fall back (default ``Other``).
+
+        Returns:
+            True if ``fallback_value`` was used because ``value`` did not match any option.
+        """
+        p = self._p()
+        loc = p.locator(selector)
+        await loc.wait_for(state="visible", timeout=15000)
+
+        async def _try_pick(v: str) -> bool:
+            try:
+                await loc.select_option(value=v, timeout=10000)
+                return True
+            except Exception:
+                pass
+            try:
+                await loc.select_option(label=v, timeout=10000)
+                return True
+            except Exception:
+                return False
+
+        if await _try_pick(value):
+            return False
+        if fallback_value is not None:
+            if fallback_value != value:
+                self._log(
+                    "WARN",
+                    f"Dropdown {selector}: no match for {value!r}, selecting fallback {fallback_value!r}",
+                )
+            if await _try_pick(fallback_value):
+                return True
+        # Years at residence only allows 0,1,2,3,99 — if still unmatched, force 3.
+        if "YearsAtAddress" in selector and await _try_pick("3"):
+            self._log(
+                "WARN",
+                f"Dropdown {selector}: fallback failed; selected last-resort '3'",
+            )
+            return True
+        raise RuntimeError(
+            f"Could not select dropdown option {value!r}"
+            + (f" or fallback {fallback_value!r}" if fallback_value else "")
+        )
+
     async def _type_slow(self, selector: str, text: str, delay: float = 120) -> None:
         field = self._p().locator(selector)
         await field.wait_for(state="visible", timeout=10000)
@@ -1448,40 +2283,107 @@ async def _smoke_test() -> None:
     # GHL duplicate-search style payload: {"contact": {...}}.
     contact = {
         "contact": {
-            "id": "smoke-test",
+            "id": "qqcJSAf4ze0MVnvOONzn",
+            "dateAdded": "2026-02-14T10:12:53.273Z",
+            "type": "lead",
             "locationId": "Czwg7VWYU6myocqsb86R",
-            "contactName": "Matthew Mgbeke",
-            "firstName": "Matthew",
-            "lastName": "Mgbeke",
-            "email": "mattmgb2005@yahoo.com",
-            "phone": "+16626076394",
-            "city": "Acworth",
+            "firstName": "John",
+            "firstNameLowerCase": "john",
+            "fullNameLowerCase": "john edwards",
+            "lastName": "Edwards",
+            "lastNameLowerCase": "edwards",
+            "email": "chrkoltahoe@yahoo.com",
+            "emailLowerCase": "chrkoltahoe@yahoo.com",
+            "phone": "+19042386282",
+            "address1": "159 College St",
+            "city": "KINGSLAND",
             "state": "GA",
-            "postalCode": "30101",
-            "address1": "230 Hickory Pointe Dr",
-            "dateOfBirth": "1958-06-07",
-            "gender": "M",
-            "maritalStatus": "Single",
-            "occupation": "Other",
+            "postalCode": "31548",
+            "country": "US",
+            "dateOfBirth": "1980-06-29",
+            "timezone": "America/New_York",
+            "followers": ["QFEe3vWj4EBUm7pZuRXK"],
+            "tags": [
+                "first sms sent",
+                "texted recently",
+                "wavv-no-answer",
+                "customer replied",
+                "sales question",
+                "first call made",
+            ],
+            "dateUpdated": "2026-05-10T15:02:44.278Z",
+            "assignedTo": "PDtxPdIWY1A6zhLjRGt2",
+            "gender": "Male",
+            "maritalStatus": "Married",
+            "occupation": "OtherNonTechnical",
             "driverLicenseNumber": "123456789",
+            "year_built": "1995",
+            "square_footage": "2200",
+            "number_of_stories": "2",
+            "datePurchased": "2/14/2026",
+            "effective_date": "",
+            "prior_carrier_home": "PROGRESSIVE",
+            "prior_expiration": "06/30/2026",
+            "years_continuous_ins": 8,
+            "years_at_residence": 48,
             "vehicles": [
                 {
+                    "year": "2019",
+                    "make": "CHEVROLET",
+                    "model": "SILVERADO K3500 HIGH COUNTRY  Distance Driven",
+                    "submodel": "SILVERADO-PICKUP  Owned",
+                    "vin_prefix": "1GNSKSKT0PR000000",
                     "ownership_status": 3,
-                    "annual_mileage": 10000,
+                    "annual_mileage": 15000,
                     "purchase_date": "03/01/2024",
                 },
                 {
+                    "year": "2023",
+                    "make": "CHEVROLET",
+                    "model": "TAHOE K1500 PREMIER  Distance Driven",
+                    "submodel": "TAHOE-SPORT UTILITY VEHICLE  Owned",
+                    "vin_prefix": "1GNSKSKT0PR000000",
                     "ownership_status": 3,
-                    "annual_mileage": 10000,
+                    "annual_mileage": 15000,
                     "purchase_date": "03/01/2024",
-                }
+                },
             ],
-            "years_at_residence": 99,
-            "prior_carrier_home": "Allstate Ins Co",
-            "prior_expiration": "03/31/2026",
-            "years_continuous_ins": 1,
-            "customFields": [],
-            "tags": [],
+            "num_vehicles": 2,
+            "customFields": [
+                {"id": "0zTbyVEssvnAInozzBdz", "value": "6/29/1980"},
+                {"id": "2vUp4BAImmIo8a8dsK7N", "value": "1GNSKSKT0PR000000"},
+                {"id": "341K8Jgel1X5J5OrJm4m", "value": "CHEVROLET"},
+                {"id": "8JFsLV5CMbvhzGyRNA5y", "value": "Good"},
+                {"id": "AWMNPex2qSSme7YK5e4G", "value": "Male"},
+                {"id": "C7istMeqbBJT06ZmM76P", "value": "CHEVROLET"},
+                {"id": "DXe8dPAy1NzqkRYGsBw2", "value": "1GNSKSKT0PR000000"},
+                {"id": "DdpYg3Lo5ioWcPyBnRgJ", "value": "2023"},
+                {"id": "GbIVaeAE4oOe6xygsCp2", "value": "Married"},
+                {"id": "IVPWhlbMASu1hAr6wd6H", "value": "SILVERADO-PICKUP  Owned"},
+                {"id": "MWLLTPYeXjWbYvtl2sVV", "value": "Owned"},
+                {"id": "MY5HS0NaK05DraTN2MZY", "value": "PROGRESSIVE"},
+                {"id": "OtNh5tbboo0LMYzSemjk", "value": "48"},
+                {"id": "WmXgvU3uyJaqYAVuUNy4", "value": "Commute_Work"},
+                {"id": "aTgHXTOzecDIgTm94dtJ", "value": "TAHOE-SPORT UTILITY VEHICLE  Owned"},
+                {"id": "angsInSy7gZlI1xoFz6E", "value": "Valid"},
+                {"id": "auVJAvWpnnYYYzTo3oW9", "value": "2023"},
+                {"id": "bHNx2ZBVrio8qURwWtex", "value": "15000"},
+                {"id": "f4sPNa61EW2yFgEOnLgF", "value": "TAHOE K1500 PREMIER  Distance Driven"},
+                {"id": "nklRSHs53FVK43manawu", "value": "Commute_Work"},
+                {"id": "qclrLfVxDmRh3uv6bMUi", "value": "15000"},
+                {"id": "seNja9CEi7TLhXew64WI", "value": "SILVERADO K3500 HIGH COUNTRY  Distance Driven"},
+                {"id": "z9r6fDjPLXxMHOyD2avg", "value": "OtherNonTechnical"},
+                {"id": "zAJbxgQsMSzsgrMawqow", "value": "2"},
+                {"id": "aZHbdJXTOjdIssPV7sMa", "value": "2"},
+                {"id": "jtIe9RfksX8OwZe1eZ45", "value": 1},
+                {"id": "lFJu6utndWOIpT2PqAdX", "value": "0"},
+                {"id": "D1gY1lj17CfHwUIKprgH", "value": 159.17},
+                {"id": "c8kKkhrqtFZbQZDsSXhA", "value": "Progressive"},
+                {"id": "PlMzlSNxxeatyDPujXJH", "value": 159.17},
+                {"id": "jcjjpI2d6lKaHdYBvDqf", "value": 8},
+            ],
+            "additionalEmails": [],
+            "additionalPhones": [],
         },
         "matchingField": "contactId",
     }

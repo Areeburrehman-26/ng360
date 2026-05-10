@@ -240,6 +240,11 @@ def enrich_contact_from_custom_fields(contact: dict) -> dict:
     Safe to call on already-normalized contacts (only fills empty standard keys).
     """
     out = dict(contact)
+
+    _yb = get_year_built(out)
+    if _yb and not str(out.get("year_built", "")).strip():
+        out["year_built"] = str(_yb).strip()
+
     cfs = out.get("customFields")
     if not isinstance(cfs, list) or not cfs:
         _pad_vehicles_to_count(out)
