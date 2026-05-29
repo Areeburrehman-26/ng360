@@ -104,6 +104,120 @@ async def get_contact(contact_id: str) -> dict[str, Any]:
     return contact
 
 
+async def search_ga_contacts_page(
+    *,
+    start_after: str | None = None,
+    limit: int = 20,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """
+    Fetch one page of GA contacts from GHL.
+
+    Tries POST /contacts/search first, then falls back to GET /contacts/.
+    Returns (contacts, next_cursor).
+    """
+    url_post = f"{GHL_BASE_URL}/contacts/search"
+    body: dict[str, Any] = {
+        "locationId": GHL_LOCATION_ID,
+        "filters": [{"field": "state", "operator": "eq", "value": "GA"}],
+        "page": 1,
+        "pageLimit": limit,
+        "sort": [{"field": "date_updated", "direction": "desc"}],
+    }
+    if start_after:
+        body["startAfterId"] = start_after
+
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_S) as client:
+        try:
+            response = await client.post(url_post, headers=_headers(), json=body)
+            if response.status_code == 200:
+                data = response.json()
+                contacts = data.get("contacts") or data.get("data", {}).get("contacts") or []
+                meta = data.get("meta") or data.get("data", {}).get("meta") or {}
+                next_cursor = meta.get("startAfterId") or meta.get("nextStartAfter") or None
+                if contacts or next_cursor is not None:
+                    return contacts, next_cursor
+        except httpx.RequestError:
+            pass
+
+        url_get = f"{GHL_BASE_URL}/contacts/"
+        params: dict[str, Any] = {
+            "locationId": GHL_LOCATION_ID,
+            "limit": limit,
+            "sortBy": "date_updated",
+        }
+        if start_after:
+            params["startAfter"] = start_after
+
+        try:
+            response = await client.get(url_get, headers=_headers(), params=params)
+        except httpx.RequestError as exc:
+            raise GHLError(f"Network error listing contacts: {exc}") from exc
+
+    if response.status_code != 200:
+        raise GHLError(f"GHL GET /contacts/ returned {response.status_code}: {response.text}")
+
+    data = response.json()
+    contacts = data.get("contacts") or []
+    meta = data.get("meta") or {}
+    next_cursor = meta.get("startAfterId") or None
+    if len(contacts) == limit and not next_cursor:
+        next_cursor = contacts[-1].get("id") if contacts else None
+    return contacts, next_cursor
+
+
+def is_ga_contact(contact: dict[str, Any]) -> bool:
+    return str(contact.get("state", "")).strip().upper() == "GA"
+
+
+def has_vehicle_signal_fields(contact: dict[str, Any]) -> bool:
+    vehicle_signal_ids = {
+        FIELD_ID_VEH1_YEAR,
+        FIELD_ID_VEH1_MAKE,
+        FIELD_ID_VEH2_YEAR,
+        FIELD_ID_VEH2_MAKE,
+    }
+    for cf in contact.get("customFields", []):
+        if cf.get("id") in vehicle_signal_ids and str(cf.get("value", "")).strip():
+            return True
+    return False
+
+
+async def find_eligible_ga_contacts(max_pages: int = 5, limit: int = 20) -> list[dict[str, Any]]:
+    """
+    Return GA contacts that have no quote/ineligible marker and at least one vehicle signal field.
+    """
+    collected: list[dict[str, Any]] = []
+    start_after: str | None = None
+
+    for _ in range(max_pages):
+        candidates, next_cursor = await search_ga_contacts_page(start_after=start_after, limit=limit)
+        if not candidates:
+            break
+
+        for candidate in candidates:
+            contact_id = candidate.get("id") or candidate.get("contactId")
+            if not contact_id:
+                continue
+            if not is_ga_contact(candidate):
+                continue
+            try:
+                full = await get_contact(str(contact_id))
+            except GHLError as exc:
+                logger.warning("[ghl_client] Skipping contact %s due to fetch failure: %s", contact_id, exc)
+                continue
+            if has_existing_quote(full) or is_marked_ineligible(full):
+                continue
+            if not has_vehicle_signal_fields(full):
+                continue
+            collected.append(full)
+
+        if not next_cursor:
+            break
+        start_after = next_cursor
+
+    return collected
+
+
 # ---------------------------------------------------------------------------
 # Custom field helpers
 # GHL v2 contact returns customFields (plural) as [{id, value}, ...]
@@ -180,6 +294,7 @@ def _append_vehicle_from_fields(
     submodel_id: str,
     vin_id: str,
     ownership_id: str,
+    use_id: str | None = None,
     annual_mi_id: str,
     dist_mi_id: str,
     fallback_annual_id: str,
@@ -193,6 +308,7 @@ def _append_vehicle_from_fields(
     if not any([y, mk, md, sub, vin]):
         return
     own_raw = get_custom_field_by_id(contact, ownership_id)
+    use_raw = get_custom_field_by_id(contact, use_id) if use_id else None
     ann = (
         _coerce_int(get_custom_field_by_id(contact, annual_mi_id))
         or _coerce_int(get_custom_field_by_id(contact, dist_mi_id))
@@ -207,6 +323,7 @@ def _append_vehicle_from_fields(
             "submodel": sub,
             "vin_prefix": vin,
             "ownership_status": _ownership_portal_value(own_raw),
+            "primary_use": use_raw,
             "annual_mileage": ann or 10000,
             "purchase_date": "03/01/2024",
         }
@@ -268,6 +385,7 @@ def enrich_contact_from_custom_fields(contact: dict) -> dict:
     home_carrier = get_custom_field_by_id(out, FIELD_ID_CURRENT_HOME_CARRIER)
     insurer = get_custom_field_by_id(out, FIELD_ID_CURRENT_INSURER)
     set_if_empty("prior_carrier_home", home_carrier or insurer)
+    set_if_empty("coverage_a", get_custom_field_by_id(out, FIELD_ID_COVERAGE_A))
 
     n_veh = _coerce_int(get_custom_field_by_id(out, FIELD_ID_TOTAL_VEHICLES))
     if n_veh is None:
@@ -284,6 +402,7 @@ def enrich_contact_from_custom_fields(contact: dict) -> dict:
         submodel_id=FIELD_ID_VEH1_SUBMODEL,
         vin_id=FIELD_ID_VEH1_VIN,
         ownership_id=FIELD_ID_VEH1_OWNERSHIP,
+        use_id=FIELD_ID_VEH1_USE,
         annual_mi_id=FIELD_ID_VEH1_ANNUAL_MI,
         dist_mi_id=FIELD_ID_VEH1_DIST_MI,
         fallback_annual_id=FIELD_ID_ANNUAL_MILEAGE1,
@@ -297,6 +416,7 @@ def enrich_contact_from_custom_fields(contact: dict) -> dict:
         submodel_id=FIELD_ID_VEH2_SUBMODEL,
         vin_id=FIELD_ID_VEH2_VIN,
         ownership_id=FIELD_ID_VEH2_OWNERSHIP,
+        use_id=FIELD_ID_VEH2_USE,
         annual_mi_id=FIELD_ID_VEH2_ANNUAL_MI,
         dist_mi_id=FIELD_ID_VEH2_DIST_MI,
         fallback_annual_id=FIELD_ID_ANNUAL_MILEAGE2,
@@ -390,14 +510,23 @@ async def record_successful_quote(
     drive_url: str,
     pay_plan: str = "",
 ) -> None:
-    """Write NG360 quote results to GHL (bundle + NG auto fields) and tag for success."""
-    ng_price = (auto_premium or "").strip() or total_premium
+    """Write NG360 quote results to GHL using existing location fields.
+
+    Persists:
+      fire_price (total), fire_quote_status, auto_quote_status,
+      national_general_quote_price (auto only, when provided),
+      auto_quote_url + upload_national_general_auto_quote (Drive URL).
+
+    home_premium and pay_plan are not written — no verified GHL field IDs yet.
+    """
     updates: dict[str, str] = {
         FIELD_ID_PRICE: total_premium,
         FIELD_ID_QUOTE_STATUS: STATUS_COMPLETED,
-        FIELD_ID_NG_QUOTE_PRICE: ng_price,
         FIELD_ID_AUTO_QUOTE_STATUS: STATUS_COMPLETED,
     }
+    auto_val = (auto_premium or "").strip()
+    if auto_val:
+        updates[FIELD_ID_NG_QUOTE_PRICE] = auto_val
     if drive_url.strip():
         updates[FIELD_ID_AUTO_QUOTE_URL] = drive_url.strip()
         updates[FIELD_ID_NG_QUOTE_PDF] = drive_url.strip()
@@ -440,6 +569,3 @@ async def record_ineligible_contact(contact_id: str, reason: str) -> None:
 async def record_processing_started(contact_id: str) -> None:
     """Mark contact as actively being processed to prevent duplicate submissions."""
     await add_tag_to_contact(contact_id, TAG_NG_PROCESSING)
-
-
-# Note: Home premium breakdown and pay plan are captured in worker notifications.

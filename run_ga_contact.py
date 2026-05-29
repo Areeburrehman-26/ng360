@@ -48,7 +48,7 @@ from ghl_contact_fieldids import (
     FIELD_ID_VEH2_YEAR,
     FIELD_ID_VEH2_MAKE,
 )
-from core.bridge_bot import NG360BridgeBot
+from core.bridge_bot import run_bot
 
 GHL_BASE_URL    = "https://services.leadconnectorhq.com"
 GHL_LOCATION_ID = os.getenv("GHL_LOCATION_ID", "Czwg7VWYU6myocqsb86R")
@@ -385,9 +385,8 @@ async def run(dry_run: bool, out_path: str | None) -> None:
 
     # 8. Run the bot
     _banner("Launching NG360BridgeBot")
-    bot = NG360BridgeBot(contact)
     try:
-        result = await asyncio.wait_for(bot.run(), timeout=600.0)
+        result = await asyncio.wait_for(run_bot(contact), timeout=600.0)
     except asyncio.TimeoutError:
         print("\n[ERROR] Watchdog timeout — quote took > 600 s", file=sys.stderr)
         sys.exit(1)

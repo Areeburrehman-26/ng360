@@ -10,16 +10,20 @@ import logging
 import os
 
 from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
 
+from core.logging_setup import configure_logging
 from core.queue_manager import Priority, queue_manager
 from services.ghl_client import (
     GHLError,
     get_contact,
+    has_instant_autofill_tag,
     has_existing_quote,
     is_marked_ineligible,
     record_ineligible_contact,
 )
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 
 
@@ -77,11 +81,13 @@ app = FastAPI(title="NG360 Bot Webhook Server")
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    public_webhook_url = f"{PUBLIC_BASE_URL}/webhook" if PUBLIC_BASE_URL else ""
     return {
         "status": "ok",
         "port": str(WEBHOOK_PORT),
         "ngrok_enabled": str(ENABLE_NGROK).lower(),
         "public_base_url": PUBLIC_BASE_URL,
+        "public_webhook_url": public_webhook_url,
     }
 
 
@@ -156,9 +162,10 @@ async def webhook(payload: dict) -> dict:
 
     first_name = str(contact.get("firstName") or contact.get("first_name") or "").strip()
     last_name = str(contact.get("lastName") or contact.get("last_name") or "").strip()
+    priority = Priority.EXTREME if has_instant_autofill_tag(contact) else Priority.HIGH
     await queue_manager.enqueue(
         contact_id=contact_id,
-        priority=Priority.HIGH,
+        priority=priority,
         first_name=first_name,
         last_name=last_name,
         state=state,
@@ -239,7 +246,7 @@ async def manual_trigger(payload: dict) -> dict:
 
     await queue_manager.enqueue(
         contact_id=contact_id,
-        priority=Priority.HIGH,
+        priority=Priority.EXTREME if has_instant_autofill_tag(contact) else Priority.HIGH,
         first_name=str(contact.get("firstName") or "").strip(),
         last_name=str(contact.get("lastName") or "").strip(),
         state=state,
@@ -256,6 +263,7 @@ async def queue_status() -> dict:
 if __name__ == "__main__":
     import uvicorn
 
+    configure_logging("webhook")
     logger.info(
         "[webhook_server] Starting on port=%s ngrok_enabled=%s public_base_url=%s auth_token_set=%s",
         WEBHOOK_PORT,

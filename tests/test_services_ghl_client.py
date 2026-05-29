@@ -1,5 +1,6 @@
 import services.ghl_client as ghl
 from ghl_contact_fieldids import (
+    FIELD_ID_COVERAGE_A,
     FIELD_ID_DRV1_LIC_NUM,
     FIELD_ID_VEH1_MAKE,
     FIELD_ID_VEH1_YEAR,
@@ -36,6 +37,16 @@ def test_enrich_contact_from_custom_fields_builds_vehicles():
     assert out["vehicles"][0]["year"] == "2020"
     assert out["vehicles"][0]["make"] == "Honda"
     assert out["driverLicenseNumber"] == "123456789"
+
+
+def test_enrich_contact_from_custom_fields_maps_coverage_a():
+    contact = {
+        "customFields": [
+            {"id": FIELD_ID_COVERAGE_A, "value": "$512,000"},
+        ],
+    }
+    out = ghl.enrich_contact_from_custom_fields(contact)
+    assert out["coverage_a"] == "$512,000"
 
 
 def test_has_instant_autofill_tag():
@@ -80,6 +91,38 @@ def test_record_successful_quote_maps_fields_and_tag(monkeypatch):
     assert captured["updates"]["u"] == "url"
     assert captured["updates"]["f"] == "url"
     assert captured["tag"] == ghl.TAG_NG_SUCCESS
+
+
+def test_record_successful_quote_omits_auto_price_when_empty(monkeypatch):
+    monkeypatch.setattr(ghl, "FIELD_ID_PRICE", "p")
+    monkeypatch.setattr(ghl, "FIELD_ID_QUOTE_STATUS", "s")
+    monkeypatch.setattr(ghl, "FIELD_ID_NG_QUOTE_PRICE", "n")
+    monkeypatch.setattr(ghl, "FIELD_ID_AUTO_QUOTE_STATUS", "a")
+
+    captured = {}
+
+    async def fake_update(contact_id, updates):
+        captured["updates"] = updates
+
+    async def fake_tag(contact_id, tag):
+        captured["tag"] = tag
+
+    monkeypatch.setattr(ghl, "update_contact_fields", fake_update)
+    monkeypatch.setattr(ghl, "add_tag_to_contact", fake_tag)
+
+    run_async(
+        ghl.record_successful_quote(
+            contact_id="c1",
+            total_premium="$100",
+            home_premium="$60",
+            auto_premium="",
+            drive_url="",
+        )
+    )
+
+    assert "n" not in captured["updates"]
+    assert captured["updates"]["p"] == "$100"
+    assert captured["updates"]["s"] == ghl.STATUS_COMPLETED
 
 
 def test_record_failed_quote_missing_data_tag(monkeypatch):

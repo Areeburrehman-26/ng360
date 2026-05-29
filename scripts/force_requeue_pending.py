@@ -5,25 +5,26 @@ force_requeue_pending.py
 Emergency script to reset any PROCESSING jobs back to PENDING.
 
 USE WHEN:
-  - The bot crashed mid-job and quote_queue.json shows stuck PROCESSING jobs
-  - curl /queue-status shows is_processing=true but no browser is running
+  - The bot crashed mid-job and data/ng360_queue.json shows stuck PROCESSING jobs
+  - curl /queue shows is_processing=true but no browser is running
   - Webhook server was force-killed while a job was running
 
 SAFE TO RUN:
   - While the webhook server is stopped
-  - While no Chrome browser is running for HOA Bot
+  - While no Chrome browser is running for NG360 Bot
   - Never run while a quote is actively being processed — risk of corruption
 
 HOW TO USE:
   1. Stop all processing:
-       pkill -f ghl_webhook_server
+       pkill -f core.webhook_server
+       pkill -f core.worker
        pkill -f chrome
   2. Run this script:
        python scripts/force_requeue_pending.py
   3. Restart the bot:
        ./start_bot.sh
   4. Verify recovery:
-       curl http://localhost:8002/queue-status
+       curl http://localhost:8004/queue
 """
 
 import json
@@ -82,7 +83,7 @@ def force_requeue_pending(queue_file: Path = QUEUE_FILE) -> None:
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("HOA Bot — Force Requeue PROCESSING Jobs")
+    print("NG360 Bot — Force Requeue PROCESSING Jobs")
     print("=" * 50)
     print()
     force_requeue_pending()

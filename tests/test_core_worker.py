@@ -32,19 +32,15 @@ class FakeQM:
         self.marked_failed.append((job_id, error))
 
 
-class FakeBot:
-    def __init__(self, contact):
-        self.contact = contact
-
-    async def run(self):
-        return {
-            "success": True,
-            "total_premium": "$100.00",
-            "home_premium": "$60.00",
-            "auto_premium": "$40.00",
-            "pdf_path": __file__,
-            "error": "",
-        }
+async def _fake_run_bot_success_async(contact):
+    return {
+        "success": True,
+        "total_premium": "$100.00",
+        "home_premium": "$60.00",
+        "auto_premium": "$40.00",
+        "pdf_path": __file__,
+        "error": None,
+    }
 
 
 async def _fake_get_contact(contact_id: str):
@@ -83,7 +79,7 @@ def test_worker_success_path(monkeypatch):
         calls["slack"] += 1
 
     monkeypatch.setattr(worker, "queue_manager", qm)
-    monkeypatch.setattr(worker, "NG360BridgeBot", FakeBot)
+    monkeypatch.setattr(worker, "run_bot", _fake_run_bot_success_async)
     monkeypatch.setattr(worker, "get_contact", _fake_get_contact)
     monkeypatch.setattr(worker, "record_processing_started", lambda *_a, **_k: asyncio.sleep(0))
     monkeypatch.setattr(worker, "record_successful_quote", fake_record_successful_quote)
@@ -103,9 +99,8 @@ def test_worker_success_path(monkeypatch):
 
 
 def test_worker_marks_failed_when_pdf_missing(monkeypatch):
-    class BotNoPdf(FakeBot):
-        async def run(self):
-            return {"success": True, "pdf_path": "", "error": ""}
+    async def fake_run_bot_no_pdf(contact):
+        return {"success": True, "pdf_path": "", "error": None}
 
     job = SimpleNamespace(job_id="j2", first_name="A", last_name="B", state="GA", contact_id="c2")
     qm = FakeQM(job)
@@ -117,7 +112,7 @@ def test_worker_marks_failed_when_pdf_missing(monkeypatch):
         return None
 
     monkeypatch.setattr(worker, "queue_manager", qm)
-    monkeypatch.setattr(worker, "NG360BridgeBot", BotNoPdf)
+    monkeypatch.setattr(worker, "run_bot", fake_run_bot_no_pdf)
     monkeypatch.setattr(worker, "get_contact", _fake_get_contact)
     monkeypatch.setattr(worker, "record_processing_started", lambda *_a, **_k: asyncio.sleep(0))
     monkeypatch.setattr(worker, "record_failed_quote", fake_record_failed_quote)
@@ -130,3 +125,31 @@ def test_worker_marks_failed_when_pdf_missing(monkeypatch):
         pass
 
     assert len(qm.marked_failed) == 1
+
+
+def test_worker_timeout_records_failure_quote(monkeypatch):
+    async def fake_run_bot_timeout(_contact):
+        raise asyncio.TimeoutError()
+
+    job = SimpleNamespace(job_id="j3", first_name="A", last_name="B", state="GA", contact_id="c3")
+    qm = FakeQM(job)
+    calls = {"failed_quote": 0}
+
+    async def fake_record_failed_quote(*_args, **_kwargs):
+        calls["failed_quote"] += 1
+
+    monkeypatch.setattr(worker, "queue_manager", qm)
+    monkeypatch.setattr(worker, "run_bot", fake_run_bot_timeout)
+    monkeypatch.setattr(worker, "get_contact", _fake_get_contact)
+    monkeypatch.setattr(worker, "record_processing_started", lambda *_a, **_k: asyncio.sleep(0))
+    monkeypatch.setattr(worker, "record_failed_quote", fake_record_failed_quote)
+    monkeypatch.setattr(worker, "notify_quote_failure", lambda *args, **kwargs: asyncio.sleep(0))
+    monkeypatch.setattr(worker.asyncio, "sleep", _stop_sleep)
+
+    try:
+        run_async(worker.run_worker())
+    except EndLoop:
+        pass
+
+    assert len(qm.marked_failed) == 1
+    assert calls["failed_quote"] == 1

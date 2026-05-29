@@ -2,14 +2,14 @@
 worker.py
 ---------
 Queue worker — polls ng360_queue.json every few seconds and calls
-NG360BridgeBot for each pending job.
+run_bot() for each pending job.
 
 This is the missing piece between the webhook server and the browser bot.
 
 Flow:
   1. Load queue from disk on startup
   2. Every POLL_INTERVAL_S seconds, check for the next PENDING job
-    3. If found → fetch full contact from GHL → call NG360BridgeBot
+    3. If found → fetch full contact from GHL → call run_bot()
   4. On success → mark job COMPLETED
   5. On failure → mark job FAILED (queue_manager retries up to 3x at LOW priority)
   6. Repeat forever
@@ -26,7 +26,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from core.queue_manager import queue_manager, JobStatus
-from core.bridge_bot import NG360BridgeBot
+from core.bridge_bot import run_bot
 from core.logging_setup import configure_logging
 from services.drive_uploader import upload_quote_pdf
 from services.ghl_client import (
@@ -73,6 +73,26 @@ def _missing_required_fields(contact: dict) -> list[str]:
     return missing
 
 
+async def _fail_job(job, error_msg: str, *, missing_data: bool = False) -> None:
+    """Write a consistent failure path across queue, GHL, and Slack."""
+    await queue_manager.mark_failed(job.job_id, error=error_msg)
+    try:
+        await record_failed_quote(job.contact_id, reason=error_msg, missing_data=missing_data)
+    except Exception as exc:
+        logger.warning("[worker] Non-fatal: could not write failure to GHL: %s", exc)
+
+    try:
+        await notify_quote_failure(
+            first_name=job.first_name,
+            last_name=job.last_name,
+            state=job.state,
+            contact_id=job.contact_id,
+            reason=str(error_msg),
+        )
+    except Exception as exc:
+        logger.warning("[worker] Slack failure notify skipped/non-fatal: %s", exc)
+
+
 async def run_worker():
     """
     Main worker loop. Runs forever until the process is killed.
@@ -112,39 +132,31 @@ async def run_worker():
             try:
                 contact = enrich_contact_from_custom_fields(await get_contact(job.contact_id))
             except GHLError as exc:
+                error_msg = f"GHL fetch failed: {exc}"
                 logger.error("[worker] GHL fetch failed for job %s: %s", job.job_id, exc)
-                await queue_manager.mark_failed(job.job_id, error=f"GHL fetch failed: {exc}")
+                await _fail_job(job, error_msg)
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue
 
             missing_fields = _missing_required_fields(contact)
             if missing_fields:
                 error_msg = f"Missing required contact fields: {', '.join(missing_fields)}"
-                await queue_manager.mark_failed(job.job_id, error=error_msg)
-                await record_failed_quote(job.contact_id, reason=error_msg, missing_data=True)
-                await notify_quote_failure(
-                    first_name=job.first_name,
-                    last_name=job.last_name,
-                    state=job.state,
-                    contact_id=job.contact_id,
-                    reason=error_msg,
-                )
+                await _fail_job(job, error_msg, missing_data=True)
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue
 
             # Run the 14-page National General automation with a 600s (10-minute) watchdog timeout
             try:
-                bot = NG360BridgeBot(contact)
-                result = await asyncio.wait_for(bot.run(), timeout=600.0)
+                result = await asyncio.wait_for(run_bot(contact), timeout=600.0)
             except asyncio.TimeoutError:
                 error_msg = "Watchdog Timeout: The quote took longer than 600 seconds and was killed."
                 logger.error("[worker] Job %s failed: %s", job.job_id, error_msg)
-                await queue_manager.mark_failed(job.job_id, error=error_msg)
+                await _fail_job(job, error_msg)
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue
             except Exception as exc:
-                logger.exception("[worker] NG360BridgeBot crashed for job %s", job.job_id)
-                await queue_manager.mark_failed(job.job_id, error=str(exc))
+                logger.exception("[worker] run_bot crashed for job %s", job.job_id)
+                await _fail_job(job, str(exc))
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue
 
@@ -157,15 +169,7 @@ async def run_worker():
 
                 if not local_pdf_path or not Path(local_pdf_path).exists():
                     error_msg = "Quote reported success but no local PDF artifact was found"
-                    await queue_manager.mark_failed(job.job_id, error=error_msg)
-                    await record_failed_quote(job.contact_id, reason=error_msg)
-                    await notify_quote_failure(
-                        first_name=job.first_name,
-                        last_name=job.last_name,
-                        state=job.state,
-                        contact_id=job.contact_id,
-                        reason=error_msg,
-                    )
+                    await _fail_job(job, error_msg)
                     await asyncio.sleep(POLL_INTERVAL_S)
                     continue
 
@@ -189,15 +193,7 @@ async def run_worker():
                 except Exception as exc:
                     error_msg = f"GHL update failed after quote completion: {exc}"
                     logger.error("[worker] %s", error_msg)
-                    await queue_manager.mark_failed(job.job_id, error=error_msg)
-                    await record_failed_quote(job.contact_id, reason=error_msg)
-                    await notify_quote_failure(
-                        first_name=job.first_name,
-                        last_name=job.last_name,
-                        state=job.state,
-                        contact_id=job.contact_id,
-                        reason=error_msg,
-                    )
+                    await _fail_job(job, error_msg)
                     await asyncio.sleep(POLL_INTERVAL_S)
                     continue
 
@@ -233,27 +229,8 @@ async def run_worker():
                 )
             else:
                 error = result.get("error", "Unknown error")
-                await queue_manager.mark_failed(job.job_id, error=error)
-                try:
-                    is_missing_data = "Missing required contact field" in str(error)
-                    await record_failed_quote(
-                        job.contact_id,
-                        reason=error,
-                        missing_data=is_missing_data,
-                    )
-                except Exception as exc:
-                    logger.warning("[worker] Non-fatal: could not write failure to GHL: %s", exc)
-
-                try:
-                    await notify_quote_failure(
-                        first_name=job.first_name,
-                        last_name=job.last_name,
-                        state=job.state,
-                        contact_id=job.contact_id,
-                        reason=str(error),
-                    )
-                except Exception as exc:
-                    logger.warning("[worker] Slack failure notify skipped/non-fatal: %s", exc)
+                is_missing_data = "Missing required contact field" in str(error)
+                await _fail_job(job, str(error), missing_data=is_missing_data)
 
                 logger.warning(
                     "[worker] Job %s FAILED at step %s: %s",

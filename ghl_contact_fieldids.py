@@ -9,14 +9,29 @@ Verified against location: Czwg7VWYU6myocqsb86R
 # ---------------------------------------------------------------------------
 # Output fields — written back to GHL after quote completes
 # ---------------------------------------------------------------------------
+#
+# Contractor brief uses ng_* names; this location uses existing GHL fields instead:
+#
+#   Brief field          GHL field (actual)                      Constant
+#   ----------------     ------------------------------------    ---------------------------
+#   ng_price             fire_price                              FIELD_ID_PRICE
+#   ng_quote_status      fire_quote_status                       FIELD_ID_QUOTE_STATUS
+#   (auto status)        auto_quote_status                       FIELD_ID_AUTO_QUOTE_STATUS
+#   ng_price (auto)      national_general_quote_price            FIELD_ID_NG_QUOTE_PRICE
+#   ng_quote_url         auto_quote_url                          FIELD_ID_AUTO_QUOTE_URL
+#   (PDF upload)         upload_national_general_auto_quote      FIELD_ID_NG_QUOTE_PDF
+#   ng_home_premium      (no output field — Slack/console only)
+#   ng_pay_plan          (no field ID yet)
+#   ng_quote_date        (no field ID yet)
+#
+# Tags (not custom fields): ng-quote-success, ng-quote-failed, etc. in ghl_client.py
 
-# NG360 uses fire_price / fire_quote_status as the shared "total premium" and
-# "quote status" slots (re-used from the HOA bot — keep as-is, IDs still valid).
+# Shared total premium + quote status (re-used from HOA bot — keep as-is).
 FIELD_ID_PRICE        = "FbUGPnB3rSRHDU52RV2d"  # contact.fire_price         ✓ VERIFIED
 FIELD_ID_QUOTE_STATUS = "WxZtUOwNYitB1ZRKxzgY"  # contact.fire_quote_status  ✓ VERIFIED
 FIELD_ID_NOT_ELIGIBLE = "Ni7UAcQDhxsWG6OwnBdh"  # contact.not_eligible       ✓ VERIFIED
 
-# NG360-specific output fields (new — add these to record_successful_quote if needed)
+# NG360 quote output — wired in record_successful_quote()
 FIELD_ID_NG_QUOTE_PRICE  = "0hirh8xfnKhXkh2PZtro"  # contact.national_general_quote_price
 FIELD_ID_NG_QUOTE_PDF    = "5ZZDrU61kWXa0Am4mHDg"  # contact.upload_national_general_auto_quote
 FIELD_ID_AUTO_QUOTE_STATUS = "toQnMxk4xZZEZETomWbH"  # contact.auto_quote_status
@@ -85,10 +100,10 @@ FIELD_ID_DRV2_LIC_STATUS = "gZIsBJk4OIjdGkeRwuLr"  # contact.driver_2_license_st
 FIELD_ID_DRV2_OCCUPATION = "m7T7VG450e5eRgiooCmv"  # contact.driver_2_occupation
 FIELD_ID_DRV2_PRIMARY_VEH = "Tp2Brc7JfuzeHLq0X0z1"  # contact.driver_2_primary_vehicle
 
-# Policy / carrier info
+# Policy / carrier info (input only — do not overwrite on quote success)
 FIELD_ID_CURRENT_AUTO_CARRIER  = "tIRadWH8kH71Wuc3JhE0"  # contact.current_auto_carrier
 FIELD_ID_CURRENT_HOME_CARRIER  = "aYB5OycrkqiwFgn8Dw3i"  # contact.current_home_carrier
 FIELD_ID_CURRENT_INSURER       = "MY5HS0NaK05DraTN2MZY"   # contact.current_insurer
 FIELD_ID_COVERAGE_A            = "axsIxJgVILl3PdiX5wUQ"   # contact.coverage_a
 FIELD_ID_AUTO_POLICY_NUMBER    = "bDTA6zupa5ByZmuaqSBn"   # contact.auto_policy_number
-FIELD_ID_AUTO_POLICY_PREMIUM   = "rXUgFslrbsQbAiDB5jNo"   # contact.auto_policy_premium
+FIELD_ID_AUTO_POLICY_PREMIUM   = "rXUgFslrbsQbAiDB5jNo"   # contact.auto_policy_premium (existing policy, not NG quote)

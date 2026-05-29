@@ -56,12 +56,14 @@ def test_webhook_enqueues_when_valid(monkeypatch):
     monkeypatch.setattr(ws, "queue_manager", fake_qm)
     monkeypatch.setattr(ws, "get_contact", _fake_get_contact)
     monkeypatch.setattr(ws, "has_existing_quote", lambda _: False)
+    monkeypatch.setattr(ws, "has_instant_autofill_tag", lambda _: False)
     monkeypatch.setattr(ws, "is_marked_ineligible", lambda _: False)
 
     result = run_async(ws.webhook({"contact_id": "c1", "state": "GA"}))
     assert result["accepted"] is True
     assert result["queued"] is True
     assert len(fake_qm.enqueued) == 1
+    assert fake_qm.enqueued[0]["priority"] == ws.Priority.HIGH
 
 
 def test_webhook_uses_contact_state_when_payload_missing_state(monkeypatch):
@@ -73,6 +75,7 @@ def test_webhook_uses_contact_state_when_payload_missing_state(monkeypatch):
 
     monkeypatch.setattr(ws, "get_contact", _contact_with_state)
     monkeypatch.setattr(ws, "has_existing_quote", lambda _: False)
+    monkeypatch.setattr(ws, "has_instant_autofill_tag", lambda _: False)
     monkeypatch.setattr(ws, "is_marked_ineligible", lambda _: False)
 
     result = run_async(ws.webhook({"contact_id": "c2"}))
@@ -80,6 +83,21 @@ def test_webhook_uses_contact_state_when_payload_missing_state(monkeypatch):
     assert result["queued"] is True
     assert len(fake_qm.enqueued) == 1
     assert fake_qm.enqueued[0]["state"] == "GA"
+
+
+def test_webhook_enqueues_extreme_for_instantautofill(monkeypatch):
+    fake_qm = FakeQueueManager()
+    monkeypatch.setattr(ws, "queue_manager", fake_qm)
+    monkeypatch.setattr(ws, "get_contact", _fake_get_contact)
+    monkeypatch.setattr(ws, "has_existing_quote", lambda _: False)
+    monkeypatch.setattr(ws, "is_marked_ineligible", lambda _: False)
+    monkeypatch.setattr(ws, "has_instant_autofill_tag", lambda _: True)
+
+    result = run_async(ws.webhook({"contact_id": "c-extreme", "state": "GA"}))
+    assert result["accepted"] is True
+    assert result["queued"] is True
+    assert len(fake_qm.enqueued) == 1
+    assert fake_qm.enqueued[0]["priority"] == ws.Priority.EXTREME
 
 
 def test_queue_status_endpoint(monkeypatch):
