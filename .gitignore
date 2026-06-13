@@ -1,9 +1,18 @@
-# Python
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
 build/
 develop-eggs/
 dist/
@@ -21,54 +30,58 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
-# Virtual environments
-venv/
-ENV/
-env/
-.venv
-
-# IDE / Editor
+# IDE and OS files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
+*.cab
 
-# Environment variables
+# Environment and secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+google_credentials.json
 
 # Logs
 logs/
 *.log
 
-# Data files (generated/runtime)
+# Runtime data / JSON dumps
 data/ghl_contacts_ga.json
 data/ng360_queue.json
-artifacts/
+enriched.json
+
+# Generated artifacts (HTML snapshots, PDFs, images)
+artifacts/*.html
+artifacts/*.png
+artifacts/*.jpg
+artifacts/*.jpeg
+artifacts/*.webp
+artifacts/*.tmp
+artifacts/pdfs/
+
+# Deprecated / unused code
+extra_no_use/
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# OS
-.DS_Store
-.AppleDouble
-.LSOverride
-*.cab
-
-# Temp files
+# Temporary files
 *.tmp
 *.temp
 *.bak
 
+# Code review graph
 .code-review-graph/
-.pytest_cache/
-.vscode/
-extra_no_use/
