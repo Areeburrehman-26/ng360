@@ -49,6 +49,30 @@ def _extract_state(payload: dict, contact: dict) -> str:
     return ""
 
 
+def _contact_display_name(contact: dict, contact_id: str = "") -> str:
+    first = str(contact.get("firstName") or contact.get("first_name") or "").strip()
+    last = str(contact.get("lastName") or contact.get("last_name") or "").strip()
+    name = f"{first} {last}".strip()
+    if name:
+        return name
+    return contact_id or "Unknown"
+
+
+def _print_webhook(
+    name: str,
+    state: str,
+    contact_id: str,
+    detail: str,
+    *,
+    source: str = "",
+) -> None:
+    src = f" | source={source}" if source else ""
+    print(
+        f"\n[NG360 webhook] {name} | state={state or '?'} | id={contact_id}{src} | {detail}\n",
+        flush=True,
+    )
+
+
 def _eligible_states_label() -> str:
     return ", ".join(sorted(ELIGIBLE_STATES))
 
@@ -125,6 +149,16 @@ async def webhook(payload: dict) -> dict:
     if not contact_id:
         raise HTTPException(status_code=400, detail={"reason": "missing contact_id"})
 
+    webhook_source = "HOA forward" if embedded_contact else "direct"
+    if embedded_contact:
+        _print_webhook(
+            _contact_display_name(embedded_contact, contact_id),
+            requested_state or _extract_state(payload, embedded_contact),
+            contact_id,
+            "received",
+            source=webhook_source,
+        )
+
     # Fast fail for explicit ineligible states without an API round trip.
     if requested_state and requested_state not in ELIGIBLE_STATES:
         try:
@@ -134,6 +168,13 @@ async def webhook(payload: dict) -> dict:
             )
         except Exception as exc:
             logger.warning("[webhook_server] Could not mark contact %s ineligible: %s", contact_id, exc)
+        _print_webhook(
+            _contact_display_name(embedded_contact or {}, contact_id),
+            requested_state,
+            contact_id,
+            f"rejected — ineligible state '{requested_state}'",
+            source=webhook_source,
+        )
         return {
             "accepted": False,
             "reason": f"ineligible state '{requested_state}'",
@@ -150,9 +191,18 @@ async def webhook(payload: dict) -> dict:
             contact = await get_contact(contact_id)
         except GHLError as exc:
             raise HTTPException(status_code=502, detail={"reason": f"ghl fetch failed: {exc}"}) from exc
+        _print_webhook(
+            _contact_display_name(contact, contact_id),
+            _extract_state(payload, contact),
+            contact_id,
+            "received",
+            source=webhook_source,
+        )
 
+    name = _contact_display_name(contact, contact_id)
     state = _extract_state(payload, contact)
     if not state:
+        _print_webhook(name, "?", contact_id, "rejected — missing state", source=webhook_source)
         return {
             "accepted": False,
             "reason": "missing state in payload/contact",
@@ -166,6 +216,7 @@ async def webhook(payload: dict) -> dict:
             )
         except Exception as exc:
             logger.warning("[webhook_server] Could not mark contact %s ineligible: %s", contact_id, exc)
+        _print_webhook(name, state, contact_id, f"rejected — ineligible state '{state}'", source=webhook_source)
         return {
             "accepted": False,
             "reason": f"ineligible state '{state}'",
@@ -176,18 +227,21 @@ async def webhook(payload: dict) -> dict:
             "[webhook_server] Contact %s skipped - price already set (existing quote)",
             contact_id,
         )
+        _print_webhook(name, state, contact_id, "skipped — existing quote", source=webhook_source)
         return {
             "accepted": False,
             "reason": "existing quote",
         }
 
     if is_marked_ineligible(contact):
+        _print_webhook(name, state, contact_id, "skipped — marked not eligible", source=webhook_source)
         return {
             "accepted": False,
             "reason": "contact marked not eligible",
         }
 
     if queue_manager.is_contact_already_queued(contact_id):
+        _print_webhook(name, state, contact_id, "skipped — already queued", source=webhook_source)
         return {
             "accepted": False,
             "reason": "already queued",
@@ -203,6 +257,8 @@ async def webhook(payload: dict) -> dict:
         last_name=last_name,
         state=state,
     )
+
+    _print_webhook(name, state, contact_id, "QUEUED", source=webhook_source)
 
     return {
         "accepted": True,
