@@ -4,11 +4,9 @@ drive_uploader.py
 -----------------
 Google Drive API v3 client for the NG360 Bot.
 
-Responsibilities:
-  - Find or create a customer-named folder under the root HOA folder
-  - Upload a PDF with a timestamped filename
-  - Set share permissions to "anyone with link can view"
-  - Return a shareable URL
+Uses OAuth user credentials (same oauth_token.json as the HOA bot) — NOT a
+service account, because service accounts have no storage quota and can't own
+files in personal Drives.
 
 Drive Folder Structure:
   Trustwell Insurance Quotes/
@@ -25,7 +23,8 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from google.oauth2 import service_account
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials as UserCredentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
@@ -39,11 +38,11 @@ logger = logging.getLogger(__name__)
 # Config
 # ---------------------------------------------------------------------------
 
-CREDENTIALS_PATH    = os.getenv("GOOGLE_DRIVE_CREDENTIALS_PATH", "")
-GDRIVE_FOLDER_ID    = os.getenv("GDRIVE_FOLDER_ID", "")
-DRIVE_SCOPES        = ["https://www.googleapis.com/auth/drive"]
-PDF_MIME_TYPE       = "application/pdf"
-FOLDER_MIME_TYPE    = "application/vnd.google-apps.folder"
+OAUTH_TOKEN_PATH = os.getenv("GOOGLE_OAUTH_TOKEN_PATH", "")
+GDRIVE_FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID", "")
+DRIVE_SCOPES     = ["https://www.googleapis.com/auth/drive"]
+PDF_MIME_TYPE    = "application/pdf"
+FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 
 
 class DriveError(RuntimeError):
@@ -55,13 +54,35 @@ class DriveError(RuntimeError):
 # ---------------------------------------------------------------------------
 
 def _build_service():
-    """Build and return an authenticated Google Drive service object."""
-    if not CREDENTIALS_PATH:
-        raise DriveError("GOOGLE_DRIVE_CREDENTIALS_PATH is not set in .env")
+    """
+    Build and return an authenticated Google Drive service object using
+    OAuth user credentials (NOT a service account).
 
-    creds = service_account.Credentials.from_service_account_file(
-        CREDENTIALS_PATH, scopes=DRIVE_SCOPES
-    )
+    Requires a token file produced by hoa_bot_rebuild/scripts/auth_drive.py.
+    Token path is set via GOOGLE_OAUTH_TOKEN_PATH in .env.
+    """
+    if not OAUTH_TOKEN_PATH:
+        raise DriveError("GOOGLE_OAUTH_TOKEN_PATH is not set in .env")
+
+    token_path = Path(OAUTH_TOKEN_PATH)
+    if not token_path.exists():
+        raise DriveError(
+            f"OAuth token not found at {token_path}. "
+            "Run: python3 hoa_bot_rebuild/scripts/auth_drive.py"
+        )
+
+    creds = UserCredentials.from_authorized_user_file(str(token_path), DRIVE_SCOPES)
+
+    if not creds.valid:
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            token_path.write_text(creds.to_json())
+        else:
+            raise DriveError(
+                "OAuth credentials are invalid and cannot be refreshed. "
+                "Re-run: python3 hoa_bot_rebuild/scripts/auth_drive.py"
+            )
+
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
@@ -115,10 +136,7 @@ def _create_folder(service, name: str, parent_id: str | None = None) -> str:
 
 
 def _get_or_create_folder(service, name: str, parent_id: str | None = None) -> str:
-    """
-    Find an existing folder or create it if absent.
-    Returns the folder ID.
-    """
+    """Find an existing folder or create it if absent. Returns the folder ID."""
     existing_id = _find_folder(service, name, parent_id)
     if existing_id:
         return existing_id
@@ -154,7 +172,7 @@ def upload_quote_pdf(
     Upload a quote PDF to Google Drive in the correct customer folder.
 
     Steps:
-      1. Find or create root "Trustwell Insurance Quotes" folder
+      1. Place directly inside the GDRIVE_FOLDER_ID root folder
       2. Find or create "{first_name} {last_name}" subfolder
       3. Upload PDF with timestamped filename
       4. Set shareable permissions
@@ -176,6 +194,9 @@ def upload_quote_pdf(
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found at: {pdf_path}")
 
+    if not GDRIVE_FOLDER_ID:
+        raise DriveError("GDRIVE_FOLDER_ID is not set in .env")
+
     customer_name = f"{first_name.strip()} {last_name.strip()}"
     filename = _timestamped_filename()
 
@@ -184,9 +205,6 @@ def upload_quote_pdf(
     )
 
     try:
-        if not GDRIVE_FOLDER_ID:
-            raise DriveError("GDRIVE_FOLDER_ID is not set in .env")
-
         service = _build_service()
 
         # Create the customer subfolder directly inside the configured NG360 folder

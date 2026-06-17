@@ -17,34 +17,13 @@ from services.ghl_client import (
     enrich_contact_from_custom_fields,
     find_eligible_ga_contacts,
 )
+from utils.contact_defaults import contact_has_vehicles
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 POLLER_INTERVAL_S = int(os.getenv("POLLER_INTERVAL_S", "300"))
 POLLER_MAX_PAGES = int(os.getenv("POLLER_MAX_PAGES", "5"))
-
-REQUIRED_CONTACT_KEYS = (
-    "firstName",
-    "lastName",
-    "postalCode",
-    "dateOfBirth",
-    "gender",
-    "maritalStatus",
-    "occupation",
-    "phone",
-    "address1",
-    "city",
-    "email",
-)
-
-
-def _is_contact_minimally_ready(contact: dict) -> bool:
-    for key in REQUIRED_CONTACT_KEYS:
-        if not str(contact.get(key, "")).strip():
-            return False
-    vehicles = contact.get("vehicles")
-    return isinstance(vehicles, list) and any(isinstance(v, dict) for v in vehicles)
 
 
 async def run_poller() -> None:
@@ -61,7 +40,7 @@ async def run_poller() -> None:
                     continue
 
                 normalized = enrich_contact_from_custom_fields(contact)
-                if not _is_contact_minimally_ready(normalized):
+                if not contact_has_vehicles(normalized):
                     continue
 
                 await queue_manager.enqueue(

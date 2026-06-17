@@ -1,15 +1,33 @@
-fastapi
-uvicorn[standard]
-playwright
-requests
-httpx
-python-dotenv
-pydantic
-slack-sdk
-google-api-python-client
-google-auth
-google-auth-httplib2
-google-auth-oauthlib
-pytest
-google-generativeai
-pyngrok
+# NG360 Bot — Python Dependencies
+# Install: pip install -r requirements.txt
+# Then:    playwright install chromium
+
+# Web server
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+
+# Browser automation
+playwright>=1.43.0
+
+# HTTP (GHL API, Slack)
+httpx>=0.27.0
+requests>=2.31.0
+
+# Google Drive (OAuth — shared token with HOA bot)
+google-auth>=2.29.0
+google-api-python-client>=2.125.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+
+# Optional: vehicle matching fallback in bridge_bot.py
+google-generativeai>=0.5.0
+
+# Environment
+python-dotenv>=1.0.1
+
+# macOS menu bar / taskbar (optional)
+rumps>=0.4.0
+
+# Testing
+pytest>=8.1.0
+pytest-asyncio>=0.23.0

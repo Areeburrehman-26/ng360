@@ -38,39 +38,12 @@ from services.ghl_client import (
     record_successful_quote,
 )
 from services.notifier import notify_quote_failure, notify_quote_success
+from utils.contact_defaults import contact_has_vehicles
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 POLL_INTERVAL_S = int(os.getenv("WORKER_POLL_INTERVAL_S", 5))
-
-REQUIRED_CONTACT_KEYS = {
-    "firstName": ("firstName", "first_name"),
-    "lastName": ("lastName", "last_name"),
-    "postalCode": ("postalCode", "zip"),
-    "dateOfBirth": ("dateOfBirth", "date_of_birth"),
-    "gender": ("gender",),
-    "maritalStatus": ("maritalStatus", "marital_status"),
-    "occupation": ("occupation",),
-    "phone": ("phone",),
-    "address1": ("address1", "address"),
-    "city": ("city",),
-    "email": ("email",),
-}
-
-
-def _missing_required_fields(contact: dict) -> list[str]:
-    missing: list[str] = []
-
-    for canonical, aliases in REQUIRED_CONTACT_KEYS.items():
-        if not any(str(contact.get(alias, "")).strip() for alias in aliases):
-            missing.append(canonical)
-
-    vehicles = contact.get("vehicles")
-    if not isinstance(vehicles, list) or not any(isinstance(v, dict) for v in vehicles):
-        missing.append("vehicles")
-
-    return missing
 
 
 async def _fail_job(job, error_msg: str, *, missing_data: bool = False) -> None:
@@ -138,9 +111,12 @@ async def run_worker():
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue
 
-            missing_fields = _missing_required_fields(contact)
-            if missing_fields:
-                error_msg = f"Missing required contact fields: {', '.join(missing_fields)}"
+            # Backup defaults for driver/address fields; vehicles must be real GHL data.
+            if not contact_has_vehicles(contact):
+                error_msg = (
+                    "Missing required vehicle data — at least one vehicle with "
+                    "year/make/model (or VIN) is required"
+                )
                 await _fail_job(job, error_msg, missing_data=True)
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue

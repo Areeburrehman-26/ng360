@@ -8,6 +8,7 @@ Pipeline:
 
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
@@ -76,7 +77,21 @@ STATE_CODES = {
     "GA": "10",  # National General GA state code
 }
 
-app = FastAPI(title="NG360 Bot Webhook Server")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    configure_logging("webhook_server")
+    logger.info("[webhook_server] Starting NG360 Bot webhook server on port %d", WEBHOOK_PORT)
+    if PUBLIC_BASE_URL:
+        logger.info("[webhook_server] Public webhook URL: %s/webhook", PUBLIC_BASE_URL)
+    else:
+        logger.info("[webhook_server] No ngrok configured (ENABLE_NGROK=0) — internal only")
+    await queue_manager.load_and_recover()
+    logger.info("[webhook_server] Queue loaded and recovered — server ready")
+    yield
+    logger.info("[webhook_server] Lifespan shutdown — cleaning up")
+
+
+app = FastAPI(title="NG360 Bot Webhook Server", lifespan=lifespan)
 
 
 @app.get("/health")
@@ -93,7 +108,18 @@ def health() -> dict[str, str]:
 
 @app.post("/webhook")
 async def webhook(payload: dict) -> dict:
-    contact_id = str(payload.get("contact_id", "")).strip()
+    # Support two payload shapes:
+    # 1) Forwarded from HOA bot: { "contact": {...}, "contact_id": "..." }
+    # 2) Direct GHL trigger:     { "contact_id": "...", "state": "GA" }
+    embedded_contact = payload.get("contact") if isinstance(payload.get("contact"), dict) else None
+
+    if embedded_contact:
+        contact_id = str(
+            embedded_contact.get("id") or payload.get("contact_id") or ""
+        ).strip()
+    else:
+        contact_id = str(payload.get("contact_id", "")).strip()
+
     requested_state = str(payload.get("state", "")).strip().upper()
 
     if not contact_id:
@@ -113,10 +139,17 @@ async def webhook(payload: dict) -> dict:
             "reason": f"ineligible state '{requested_state}'",
         }
 
-    try:
-        contact = await get_contact(contact_id)
-    except GHLError as exc:
-        raise HTTPException(status_code=502, detail={"reason": f"ghl fetch failed: {exc}"}) from exc
+    # Use the embedded contact (forwarded from HOA) or fetch from GHL.
+    if embedded_contact:
+        contact = embedded_contact
+        logger.info(
+            "[webhook_server] Using embedded contact %s (forwarded from HOA bot)", contact_id
+        )
+    else:
+        try:
+            contact = await get_contact(contact_id)
+        except GHLError as exc:
+            raise HTTPException(status_code=502, detail={"reason": f"ghl fetch failed: {exc}"}) from exc
 
     state = _extract_state(payload, contact)
     if not state:
@@ -260,15 +293,12 @@ async def queue_status() -> dict:
     return await queue_manager.get_status()
 
 
-if __name__ == "__main__":
+def start():
+    """Start the webhook server. Called by start_bot.sh via python -m core.webhook_server."""
     import uvicorn
-
-    configure_logging("webhook")
-    logger.info(
-        "[webhook_server] Starting on port=%s ngrok_enabled=%s public_base_url=%s auth_token_set=%s",
-        WEBHOOK_PORT,
-        ENABLE_NGROK,
-        PUBLIC_BASE_URL or "(none)",
-        bool(NGROK_AUTH_TOKEN),
-    )
+    configure_logging("webhook_server")
     uvicorn.run("core.webhook_server:app", host="0.0.0.0", port=WEBHOOK_PORT, reload=False)
+
+
+if __name__ == "__main__":
+    start()

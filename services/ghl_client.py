@@ -23,6 +23,7 @@ import httpx
 from dotenv import load_dotenv
 
 from ghl_contact_fieldids import *  # noqa: F401,F403 — FIELD_ID_* source of truth
+from utils.contact_defaults import apply_contact_defaults
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -365,7 +366,7 @@ def enrich_contact_from_custom_fields(contact: dict) -> dict:
     cfs = out.get("customFields")
     if not isinstance(cfs, list) or not cfs:
         _pad_vehicles_to_count(out)
-        return out
+        return apply_contact_defaults(out)
 
     def set_if_empty(key: str, value: str | None) -> None:
         if value is None or not str(value).strip():
@@ -430,7 +431,8 @@ def enrich_contact_from_custom_fields(contact: dict) -> dict:
         out["vehicles"] = []
 
     _pad_vehicles_to_count(out)
-    return out
+
+    return apply_contact_defaults(out)
 
 
 # ---------------------------------------------------------------------------
