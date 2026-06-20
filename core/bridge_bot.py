@@ -324,21 +324,23 @@ async def _page_7_ensure_roof_year_not_older_than_dwelling(
     verify_fields: dict[str, str],
     contact: dict,
 ) -> None:
-    """Portal R0396: roof renovation year must not be before year built."""
+    """Set roof renovation year: trust portal if already filled, else use CRM or safe default."""
+    _SAFE_ROOF_DEFAULT_YEARS_AGO = 5  # current_year - 5 always passes R0779 age limit
+
     yrroof_sel = "#MainContent_txtYearRoofRenovation"
     loc_roof = page.locator(yrroof_sel).first
     if await loc_roof.count() == 0:
         return
 
-    yb = await _page_7_read_year_built(page)
-    if yb is None:
-        yb_raw = _contact_first(contact, "year_built", "yearBuilt")
-        if yb_raw:
-            yb = _portal_year_int(_year_built_portal_value(yb_raw))
-        if yb is None:
-            yb = 2020
-
     roof_cur = (await loc_roof.input_value()).strip()
+
+    # Portal already has a year — leave it alone, don't overwrite
+    if _portal_year_int(roof_cur):
+        log("INFO", f"Roof year already filled in portal ({roof_cur}) — skipping override")
+        verify_fields[yrroof_sel] = roof_cur
+        return
+
+    # Portal is empty — try CRM first, then safe default
     roof_from_crm = _contact_first(
         contact,
         "year_roof_renovation",
@@ -347,21 +349,25 @@ async def _page_7_ensure_roof_year_not_older_than_dwelling(
         "roof_year",
         "roofYear",
     )
-    roof_y = _portal_year_int(roof_cur) or _portal_year_int(roof_from_crm)
+    roof_y = _portal_year_int(roof_from_crm)
     if roof_y is None:
-        roof_y = yb
+        roof_y = datetime.now().year - _SAFE_ROOF_DEFAULT_YEARS_AGO
+        log("INFO", f"No roof year in portal or CRM — using safe default {roof_y}")
 
+    # R0396: roof year must not be before year built
+    yb = await _page_7_read_year_built(page)
+    if yb is None:
+        yb_raw = _contact_first(contact, "year_built", "yearBuilt")
+        if yb_raw:
+            yb = _portal_year_int(_year_built_portal_value(yb_raw))
+        if yb is None:
+            yb = 2020
     if roof_y < yb:
-        log(
-            "INFO",
-            f"Roof renovation year {roof_y} is before year built {yb}; "
-            f"setting roof year to {yb} (R0396)",
-        )
+        log("INFO", f"Roof year {roof_y} is before year built {yb}; setting to {yb} (R0396)")
         roof_y = yb
 
     roof_s = str(roof_y)
-    if roof_cur != roof_s:
-        await loc_roof.fill(roof_s)
+    await loc_roof.fill(roof_s)
     verify_fields[yrroof_sel] = roof_s
 
 
@@ -540,6 +546,8 @@ async def run_bot_page(page_num: int, page: Page, fn, *args, note: str = "", **k
         return result
     except Exception as exc:
         debug_page_fail(page_num, exc, page=page, elapsed_s=time.monotonic() - t0)
+        log("INFO", f"Waiting 5s after page {page_num} failure before continuing...")
+        await asyncio.sleep(5)
         raise
 
 
@@ -1623,6 +1631,27 @@ async def page_7_property(page: Page, contact: dict) -> None:
         fallback_value="1",
         fallback_labels=("Single Family",),
     )
+    # Retry until the number-of-families value is actually confirmed selected (portal can reset it)
+    _nof_raw = _contact_first(contact, "number_of_families", "numberOfFamilies", "num_families") or "1"
+    _nof_loc = page.locator("#MainContent_ddlNumberOfFamilies").first
+    if await _nof_loc.count() > 0:
+        for _nof_attempt in range(1, 7):
+            _nof_current = (await _nof_loc.input_value()).strip()
+            if _nof_current not in ("", "-1"):
+                if _nof_attempt > 1:
+                    log("INFO", f"Number of families confirmed as {_nof_current!r} (attempt {_nof_attempt})")
+                break
+            log("WARN", f"Number of families still unselected after attempt {_nof_attempt}; retrying with value={_nof_raw!r}")
+            try:
+                await _nof_loc.select_option(value=_nof_raw)
+            except Exception:
+                try:
+                    await _nof_loc.select_option(label=_nof_raw)
+                except Exception:
+                    pass
+            await page.wait_for_timeout(500)
+        else:
+            log("WARN", "Number of families could not be confirmed after 6 attempts")
 
     await _select_from_contact_or_fallback(
         page,
@@ -1959,27 +1988,32 @@ async def _page_8_fill_prior_policy_fields(page: Page, contact: dict) -> dict[st
     return verify
 
 
-_UW8_ADDL_QUESTION_DEFAULTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    (_UW8_SITE_ACCESS_VALUE, ("uw_site_access", "site_access", "underwriting_site_access")),
-    ("False", ("uw_flood_zone_designation", "flood_zone_av", "property_flood_zone")),
-    ("N", ("uw_swimming_pool", "swimming_pool", "pool_on_premises")),
-    ("False", ("uw_coverage_lapse", "coverage_lapse_12_months")),
-    ("False", ("uw_flood_area", "wave_wash_sinkhole_area")),
-    ("False", ("uw_trampoline", "trampoline_on_premise")),
-    ("No", ("uw_debris", "debris_on_premises")),
-    ("False", ("uw_commercial_exposure", "commercial_exposure")),
-    ("True", ("uw_go_paperless", "go_paperless", "paperless")),
-)
+_UW_QUESTION_RULES = [
+    # (keywords, want_val, crm_keys)
+    (["paperless", "electronic"], "True", ("uw_go_paperless", "go_paperless", "paperless")),
+    (["site access", "underwriting site"], _UW8_SITE_ACCESS_VALUE, ("uw_site_access", "site_access", "underwriting_site_access")),
+    (["trampoline", "unnetted", "flat ground"], "False", ("uw_trampoline", "trampoline_on_premise")),
+    (["pool", "swimming", "diving board", "slide"], "N", ("uw_swimming_pool", "swimming_pool", "pool_on_premises")),
+    (["lapse", "without coverage"], "False", ("uw_coverage_lapse", "coverage_lapse_12_months")),
+    (["flood", "wave wash", "sinkhole"], "False", ("uw_flood_area", "wave_wash_sinkhole_area", "property_flood_zone")),
+    (["debris", "unregistered", "inoperable"], "No", ("uw_debris", "debris_on_premises")),
+    (["commercial", "business", "day care", "farming", "farm"], "False", ("uw_commercial_exposure", "commercial_exposure")),
+    (["dog", "animal", "bite", "exotic"], "False", ("uw_animals", "animals_on_premise")),
+    (["loss", "claim", "damage"], "False", ("uw_prior_loss", "prior_losses")),
+    (["polybutylene", "knob", "tube", "fuse"], "False", ("uw_wiring",)),
+    (["foreclosure", "bankrupt"], "False", ("uw_foreclosure",)),
+]
 
 
 async def _page_8_fill_additional_questions(page: Page, contact: dict) -> None:
-    """Additional Questions: defaults only when CRM has no value for that question and the select is still unset."""
+    """Additional Questions: fill from CRM if available, otherwise use keyword-matched defaults."""
     base = "#MainContent_ucUnderwritingQuestions_rpParentQuestions_ddlAnswer_"
-    for i, (want_val, crm_keys) in enumerate(_UW8_ADDL_QUESTION_DEFAULTS):
-        sel = f"{base}{i}"
-        loc = page.locator(sel).first
-        if await loc.count() == 0:
-            continue
+
+    # Discover all parent question dropdowns on the page
+    all_parent_selects = await page.locator(f"select[id^='MainContent_ucUnderwritingQuestions_rpParentQuestions_ddlAnswer_']").all()
+    log("INFO", f"Underwriting: found {len(all_parent_selects)} parent question dropdowns")
+
+    for loc_idx, loc in enumerate(all_parent_selects):
         try:
             if not await loc.is_visible():
                 continue
@@ -1989,48 +2023,201 @@ async def _page_8_fill_additional_questions(page: Page, contact: dict) -> None:
             cur = (await loc.input_value()).strip()
         except Exception:
             cur = ""
-        if not _dropdown_selection_is_empty(cur):
-            continue
-        if _contact_first(contact, *crm_keys):
-            continue
+
+        # Read valid options
+        valid_options = []
         try:
-            await loc.select_option(value=want_val, timeout=8000)
-        except Exception:
-            try:
-                await loc.select_option(label=want_val, timeout=5000)
-            except Exception:
-                if want_val == "False":
-                    try:
-                        await loc.select_option(label="No", timeout=5000)
-                    except Exception:
-                        log("WARN", f"Underwriting additional Q{i + 1}: could not select default {want_val!r}")
-                        continue
-                elif want_val == "True":
-                    try:
-                        await loc.select_option(label="Yes", timeout=5000)
-                    except Exception:
-                        log("WARN", f"Underwriting additional Q{i + 1}: could not select default Yes")
-                        continue
-                else:
-                    log("WARN", f"Underwriting additional Q{i + 1}: could not select default {want_val!r}")
+            options = await loc.locator("option").all()
+            for opt in options:
+                val = (await opt.get_attribute("value") or "").strip()
+                lbl = (await opt.text_content() or "").strip()
+                if val in ("", "-1") or "select" in lbl.lower() or "choose" in lbl.lower():
                     continue
+                valid_options.append({"value": val, "label": lbl})
+        except Exception as e:
+            log("WARN", f"Underwriting question {loc_idx}: could not read options: {e}")
+            continue
+
+        if not valid_options:
+            continue
+
+        # Extract question text to determine rule
+        q_text = ""
         try:
-            await page.wait_for_load_state("networkidle", timeout=15000)
+            q_text = await loc.evaluate("el => { let tr = el.closest('tr, li'); return tr ? tr.innerText : el.parentElement.innerText; }")
+            q_text = q_text.lower()
         except Exception:
-            await page.wait_for_timeout(400)
+            pass
+
+        want_val = "False"  # Safe default for unknown questions
+        crm_keys: tuple = ()
+        for kw_list, w_val, c_keys in _UW_QUESTION_RULES:
+            if any(kw in q_text for kw in kw_list):
+                want_val = w_val
+                crm_keys = c_keys
+                break
+
+        # Check if a value is already selected (non-empty and not "-1")
+        if not _dropdown_selection_is_empty(cur):
+            # If it's the trampoline question and currently Yes/True, force it to No
+            if "trampoline" in q_text and cur.lower() not in ("false", "no", "n", "0"):
+                log("INFO", f"Trampoline question currently {cur!r}, forcing to {want_val!r}")
+            else:
+                continue
+
+        selected = False
+
+        # 1. Try to select the CRM value first
+        crm_val = _contact_first(contact, *crm_keys) if crm_keys else None
+        if crm_val:
+            crm_val_str = str(crm_val).strip().lower()
+            # Try to match the CRM value with option values or labels
+            for opt in valid_options:
+                if opt["value"].lower() == crm_val_str or opt["label"].lower() == crm_val_str:
+                    try:
+                        await loc.select_option(value=opt["value"])
+                        selected = True
+                        log("INFO", f"Underwriting {loc_idx}: selected CRM value {opt['label']!r}")
+                        break
+                    except Exception:
+                        pass
+            # Try Boolean translation for CRM value
+            if not selected:
+                if crm_val_str in ("yes", "true", "y", "1"):
+                    for opt in valid_options:
+                        if opt["value"].lower() in ("true", "yes", "y", "1") or opt["label"].lower() in ("true", "yes", "y", "1"):
+                            try:
+                                await loc.select_option(value=opt["value"])
+                                selected = True
+                                log("INFO", f"Underwriting {loc_idx}: selected CRM Yes/True equivalent")
+                                break
+                            except Exception:
+                                pass
+                elif crm_val_str in ("no", "false", "n", "0"):
+                    for opt in valid_options:
+                        if opt["value"].lower() in ("false", "no", "n", "0") or opt["label"].lower() in ("false", "no", "n", "0"):
+                            try:
+                                await loc.select_option(value=opt["value"])
+                                selected = True
+                                log("INFO", f"Underwriting {loc_idx}: selected CRM No/False equivalent")
+                                break
+                            except Exception:
+                                pass
+
+        # 2. Fallback: use the configured want_val default, then prefer No/False for safety
+        if not selected:
+            wv_lower = want_val.strip().lower()
+            for opt in valid_options:
+                if opt["value"].lower() == wv_lower or opt["label"].lower() == wv_lower:
+                    try:
+                        await loc.select_option(value=opt["value"])
+                        selected = True
+                        log("INFO", f"Underwriting {loc_idx}: Selected configured default {opt['label']!r}")
+                        break
+                    except Exception:
+                        pass
+
+            if not selected:
+                chosen = next(
+                    (o for o in valid_options if o["value"].lower() in ("false", "no", "n", "0") or o["label"].lower() in ("false", "no", "n", "0")),
+                    valid_options[0],
+                )
+                try:
+                    await loc.select_option(value=chosen["value"])
+                    selected = True
+                    log("INFO", f"Underwriting {loc_idx} (fallback): Selected {chosen['label']!r}")
+                except Exception:
+                    pass
+
+        if selected:
+            try:
+                await page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                await page.wait_for_timeout(400)
 
 
-async def page_8_underwriting(page: Page, contact: dict) -> None:
-    debug_step(8, "fill prior policy + underwriting questions", page=page)
-    verify_fields = await _page_8_fill_prior_policy_fields(page, contact)
-    await _page_8_fill_additional_questions(page, contact)
+async def _page_8_fill_child_questions(page: Page, *, retries: int = 3) -> None:
+    """
+    After parent questions are answered, check for any visible child sub-questions.
+    Q6a (trampoline sub-question) should NOT appear because the trampoline parent is always
+    forced to No/False before this function runs. If Q6a appears anyway, we log a warning
+    and leave it at its current value rather than force Yes (which could cause underwriting issues).
+    Also scans for any other child sub-questions (not in the 9 known parent IDs) and answers Yes.
+    Retries up to `retries` times with a 2s wait between passes.
+    """
+    # Q6a: trampoline sub-question — should not appear since parent trampoline is always No.
+    # If it does appear unexpectedly, warn and do not change it.
+    for attempt in range(1, retries + 1):
+        q6a_found = False
+        child_locs = await page.locator("select[id*='_rpChildQuestions_']").all()
+        for c in child_locs:
+            if await c.is_visible():
+                q6a_found = True
+                
+        if not q6a_found:
+            break
 
-    if verify_fields:
-        await _verify_and_refill(page, verify_fields)
+        await page.wait_for_timeout(2000)
 
-    # Inline click next logic with fallbacks
-    clicked = False
-    for attempt in range(3):
+
+async def _page_8_answer_empty_page_selects(page: Page) -> int:
+    """
+    Scan the ENTIRE page for any visible, unanswered <select> elements
+    that are not in the Prior Policy section (those are already handled).
+    Returns the number of selects that were filled.
+    """
+    _SKIP_IDS = {
+        "MainContent_ucPriorPolicyInformation_ddlPriorInsuranceCoverage",
+        "MainContent_ucPriorPolicyInformation_ddlPriorInsuranceCompany",
+    }
+    filled = 0
+    all_selects = page.locator("select")
+    n = await all_selects.count()
+    for idx in range(n):
+        loc = all_selects.nth(idx)
+        try:
+            if not await loc.is_visible():
+                continue
+            sel_id = (await loc.get_attribute("id") or "").strip()
+            if any(skip in sel_id for skip in _SKIP_IDS):
+                continue
+            cur = (await loc.input_value()).strip()
+            if not _dropdown_selection_is_empty(cur):
+                continue  # already answered
+            # Read valid options
+            options = await loc.locator("option").all()
+            valid_opts = []
+            for opt in options:
+                val = (await opt.get_attribute("value") or "").strip()
+                lbl = (await opt.text_content() or "").strip()
+                if val in ("", "-1") or "select" in lbl.lower() or "choose" in lbl.lower():
+                    continue
+                valid_opts.append({"value": val, "label": lbl})
+            if not valid_opts:
+                continue
+            # Prefer False/No for safety for generic empty questions
+            chosen = next(
+                (o for o in valid_opts if o["value"].lower() in ("false", "no", "n", "0") or o["label"].lower() in ("false", "no", "n", "0")),
+                valid_opts[0],
+            )
+            await loc.select_option(value=chosen["value"], timeout=8000)
+            log("INFO", f"Answered empty select {sel_id!r} -> {chosen['label']!r}")
+            filled += 1
+            try:
+                await page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                await page.wait_for_timeout(500)
+        except Exception as exc:
+            log("WARN", f"Could not answer select idx={idx}: {exc}")
+    return filled
+
+
+async def _page_8_click_continue(page: Page) -> None:
+    """Click Continue on the Underwriting page; if validation errors mention unanswered
+    sub-questions (like 6a), find and answer them, then retry — up to 3 rounds."""
+    for round_num in range(1, 4):
+        # Click the Continue button
+        clicked = False
         for sel in ["#MainContent_btnContinue", "input[name$='btnContinue']", "button:has-text('Continue')", "button:has-text('Next')"]:
             try:
                 btn = page.locator(sel).first
@@ -2040,20 +2227,57 @@ async def page_8_underwriting(page: Page, contact: dict) -> None:
                     break
             except Exception:
                 pass
-        if clicked:
-            break
+        if not clicked:
+            try:
+                await page.evaluate("document.getElementById('MainContent_btnContinue')?.click()")
+                clicked = True
+            except Exception:
+                pass
+        if not clicked:
+            raise RuntimeError("Could not click Continue on Underwriting")
+
         try:
-            await page.evaluate("document.getElementById('MainContent_btnContinue')?.click()")
-            clicked = True
-            break
+            await page.wait_for_load_state("networkidle", timeout=10000)
+        except Exception:
+            await page.wait_for_timeout(1000)
+
+        # Check for validation errors about unanswered Additional Questions
+        error_texts: list[str] = []
+        try:
+            error_items = page.locator("#lstErrors li")
+            ec = await error_items.count()
+            for ei in range(ec):
+                txt = (await error_items.nth(ei).inner_text()).strip()
+                error_texts.append(txt)
         except Exception:
             pass
-        await page.wait_for_timeout(1000)
-        
-    if not clicked:
-        raise RuntimeError("Could not click Continue on Underwriting")
 
-    await page.wait_for_load_state("networkidle")
+        addl_q_errors = [t for t in error_texts if "additional question" in t.lower()]
+        if not addl_q_errors:
+            # No additional-question errors — continue was accepted (or different error, not our concern here)
+            return
+
+        log("WARN", f"Round {round_num}: validation errors about unanswered questions: {addl_q_errors}")
+        await page.wait_for_timeout(1500)
+        filled = await _page_8_answer_empty_page_selects(page)
+        log("INFO", f"Round {round_num}: answered {filled} previously empty select(s) — retrying Continue")
+        if filled == 0:
+            log("WARN", "No empty selects found to answer — cannot resolve validation error")
+            raise RuntimeError(f"Underwriting validation error after {round_num} rounds: {addl_q_errors[0]}")
+
+    raise RuntimeError("Could not pass Underwriting validation after 3 rounds of answering sub-questions")
+
+
+async def page_8_underwriting(page: Page, contact: dict) -> None:
+    debug_step(8, "fill prior policy + underwriting questions", page=page)
+    verify_fields = await _page_8_fill_prior_policy_fields(page, contact)
+    await _page_8_fill_additional_questions(page, contact)
+    await _page_8_fill_child_questions(page)
+
+    if verify_fields:
+        await _verify_and_refill(page, verify_fields)
+
+    await _page_8_click_continue(page)
 
 # - PAGE 9: LOSS HISTORY (click continue) --------------â”€
 
@@ -2595,10 +2819,18 @@ async def page_11_driver(page: Page, contact: dict) -> None:
         dob_raw = _contact_first(contact, "dateOfBirth", "date_of_birth")
         dob = _date(dob_raw) if dob_raw else "1/1/1990"
         await _fill_text_if_visible("#MainContent_txtDateOfBirth", dob)
+        # Fire focusout (NOT change — change triggers __doPostBack which reloads the page)
+        # focusout runs DefensiveDriverCourseVisibilityToggle via jQuery without any postback
         try:
-            await page.wait_for_load_state("networkidle", timeout=20000)
+            await page.evaluate(
+                """() => {
+                    const el = document.getElementById('MainContent_txtDateOfBirth');
+                    if (el) el.dispatchEvent(new Event('focusout', {bubbles: true}));
+                }"""
+            )
+            await page.wait_for_timeout(300)
         except Exception:
-            await page.wait_for_timeout(600)
+            pass
 
         g = _driver_gender_portal_value(_contact_first(contact, "gender"))
         await _select_if_present("#MainContent_ddlGender", g, wait_postback=True)
@@ -2731,23 +2963,57 @@ async def page_11_driver(page: Page, contact: dict) -> None:
         raise RuntimeError("Losses in 5 Years could not be forced to No/False")
 
     async def _force_defensive_driver_course_no() -> None:
-        sel = "#MainContent_ddlDefensiveDriverCourse"
-        if not await _driver_field_visible(sel):
-            log("INFO", "Defensive Driver Course not visible on this driver form; skipping")
+        """Find defensive driver dropdown, choose No, verify. Retry up to 4 times."""
+        dd_id = "MainContent_ddlDefensiveDriverCourse"
+        sel = f"#{dd_id}"
+
+        if await page.locator(sel).count() == 0:
+            log("INFO", "Defensive Driver Course dropdown not found; skipping")
             return
-        for _ in range(3):
+
+        for attempt in range(1, 5):
+            # Use JavaScript to: enable the dropdown, find the "No" option, select it, fire change event
+            await page.evaluate(
+                """(ddId) => {
+                    const el = document.getElementById(ddId);
+                    if (!el) return;
+                    el.disabled = false;
+                    el.removeAttribute('disabled');
+                    for (let i = 0; i < el.options.length; i++) {
+                        const t = el.options[i].text.trim().toLowerCase();
+                        const v = el.options[i].value.trim().toLowerCase();
+                        if (t === 'no' || v === 'false' || v === 'no' || v === 'n') {
+                            el.selectedIndex = i;
+                            break;
+                        }
+                    }
+                    el.dispatchEvent(new Event('change', {bubbles: true}));
+                }""",
+                dd_id,
+            )
+            await page.wait_for_timeout(500)
+
+            # Check if it worked
             try:
-                await page.locator(sel).select_option(value="False")
+                val = (await page.locator(sel).input_value()).strip().lower()
             except Exception:
+                val = ""
+            if val in ("false", "no", "n", "0"):
+                log("INFO", f"Defensive Driver Course set to No (attempt {attempt})")
+                # Clear the date fields so backend doesn't complain
                 try:
-                    await page.locator(sel).select_option(label="No")
+                    await page.evaluate("document.getElementById('MainContent_txtDefensiveDriverCourseCompletionDate').value = '';")
                 except Exception:
                     pass
-            current = (await page.locator(sel).input_value()).strip()
-            if current == "False":
+                try:
+                    await page.evaluate("document.getElementById('MainContent_txtDefensiveDriverCourseExpirationDate').value = '';")
+                except Exception:
+                    pass
                 return
-            await page.wait_for_timeout(250)
-        log("WARN", "Defensive Driver Course could not be set to No/False (field visible but select failed)")
+
+            log("WARN", f"Defensive Driver Course is {val!r} after attempt {attempt}, retrying...")
+
+        log("WARN", "Defensive Driver Course could not be set to No after 4 attempts - continuing anyway")
 
     async def _apply_dynamic_drive_program() -> None:
         """Program Participant from CRM; default Yes. When Yes, cell + email from GHL (reference UI)."""
@@ -2788,8 +3054,8 @@ async def page_11_driver(page: Page, contact: dict) -> None:
         await _select_if_present("#MainContent_ddlOperatorType", "Operator", wait_postback=True, label_fallback="Operator")
         await _set_required_select("#MainContent_ddlLossesIn5Years", "False", "Losses in 5 years")
         await _force_losses_in_5_years_no()
-        if await _driver_field_visible("#MainContent_ddlDefensiveDriverCourse"):
-            await _set_required_select("#MainContent_ddlDefensiveDriverCourse", "False", "Defensive Driver Course", wait_postback=True)
+        # Force defensive driver No regardless of visibility
+        if await page.locator("#MainContent_ddlDefensiveDriverCourse").count() > 0:
             await _force_defensive_driver_course_no()
         if second:
             await _select_if_present(
@@ -2811,12 +3077,11 @@ async def page_11_driver(page: Page, contact: dict) -> None:
 
     async def _driver_missing_required_fields() -> list[str]:
         missing: list[str] = []
-        checks = (
+        # License status and losses: only flag if unselected (visible field, empty/default)
+        for selector, label in (
             ("#MainContent_ddlDriversLicenseStatus", "Driver License Status"),
-            ("#MainContent_ddlDefensiveDriverCourse", "Defensive Driver Course"),
             ("#MainContent_ddlLossesIn5Years", "Losses in 5 Years"),
-        )
-        for selector, label in checks:
+        ):
             if await page.locator(selector).count() == 0:
                 continue
             try:
@@ -2827,6 +3092,16 @@ async def page_11_driver(page: Page, contact: dict) -> None:
             cur = (await page.locator(selector).input_value()).strip()
             if cur in ("", "-1"):
                 missing.append(label)
+        # Defensive driver: flag if visible and NOT set to No — catches both empty and "Yes"
+        dd_sel = "#MainContent_ddlDefensiveDriverCourse"
+        if await page.locator(dd_sel).count() > 0:
+            try:
+                if await page.locator(dd_sel).first.is_visible():
+                    dd_val = (await page.locator(dd_sel).input_value()).strip()
+                    if dd_val not in ("False", "No"):
+                        missing.append("Defensive Driver Course (must be No)")
+            except Exception:
+                pass
         return missing
 
     if await _driver_field_visible("#MainContent_txtFirstName"):
@@ -2874,8 +3149,7 @@ async def page_11_driver(page: Page, contact: dict) -> None:
             await _verify_and_refill(page, {"#MainContent_txtDriversLicenseNumber": lic_to_use})
         await _force_active_license_status()
         await _force_losses_in_5_years_no()
-        if await _driver_field_visible("#MainContent_ddlDefensiveDriverCourse"):
-            await _force_defensive_driver_course_no()
+        await _force_defensive_driver_course_no()
         await _force_years_experience_four()
         await page.click("#MainContent_btnSaveDriver")
         await page.wait_for_load_state("networkidle")
@@ -2896,20 +3170,24 @@ async def page_11_driver(page: Page, contact: dict) -> None:
                         needs_retry = True
                         log("WARN", "Losses-in-5-years reset by page; forcing No/False")
                         await _force_losses_in_5_years_no()
-                if await _driver_field_visible("#MainContent_ddlDefensiveDriverCourse"):
+                if await page.locator("#MainContent_ddlDefensiveDriverCourse").count() > 0:
                     dd = (await page.locator("#MainContent_ddlDefensiveDriverCourse").input_value()).strip()
-                    if dd in ("", "-1"):
+                    if dd.lower() not in ("false", "no", "n", "0", "none"):
                         needs_retry = True
-                        log("WARN", "Defensive Driver Course reset by page; forcing No/False")
+                        log("WARN", "Defensive Driver Course not No after save; forcing No/False")
                         await _force_defensive_driver_course_no()
                 if needs_retry:
-                    log("WARN", "Re-saving driver after correcting required dropdown values")
+                    log("WARN", "Re-saving primary driver after correcting required dropdown values")
                     await _force_years_experience_four()
                     await page.click("#MainContent_btnSaveDriver")
                     await page.wait_for_load_state("networkidle")
                     if await page.locator("#lstErrors li").count() > 0:
                         err = (await page.locator("#lstErrors").inner_text()).strip()
-                raise RuntimeError(f"Driver save blocked by validation: {err}")
+                        if err:
+                            raise RuntimeError(f"Primary driver save still blocked after retry: {err}")
+                    # Retry succeeded — do not raise
+                else:
+                    raise RuntimeError(f"Driver save blocked by validation: {err}")
 
     log("INFO", "Primary driver form saved; additional drivers on the quote are no longer auto-deleted.")
 
@@ -3032,10 +3310,18 @@ async def page_11_driver(page: Page, contact: dict) -> None:
         await _fill_text_if_visible("#MainContent_txtLastName", ln_a)
         await _clear_middle_name()
         await _fill_text_if_visible("#MainContent_txtDateOfBirth", dob_a)
+        # Fire focusout (NOT change — change triggers __doPostBack which reloads the page and resets values)
+        # focusout runs DefensiveDriverCourseVisibilityToggle via jQuery, showing the field for 55+ drivers
         try:
-            await page.wait_for_load_state("networkidle", timeout=20000)
+            await page.evaluate(
+                """() => {
+                    const el = document.getElementById('MainContent_txtDateOfBirth');
+                    if (el) el.dispatchEvent(new Event('focusout', {bubbles: true}));
+                }"""
+            )
+            await page.wait_for_timeout(300)
         except Exception:
-            await page.wait_for_timeout(600)
+            pass
 
         await _select_if_present("#MainContent_ddlGender", "F", wait_postback=True, label_fallback="Female")
         await _select_if_present("#MainContent_ddlMaritalStatus", "Single", wait_postback=True)
@@ -3138,17 +3424,44 @@ async def page_11_driver(page: Page, contact: dict) -> None:
             await _clear_middle_name()
             await _force_active_license_status()
             await _force_losses_in_5_years_no()
-            if await _driver_field_visible("#MainContent_ddlDefensiveDriverCourse"):
-                await _force_defensive_driver_course_no()
+            # Always force defensive driver No (works for both visible and hidden elements)
+            await _force_defensive_driver_course_no()
             await _force_years_experience_four()
+            # Final verification before save: confirm license status and defensive driver are correct
+            lic_status_val = (await page.locator("#MainContent_ddlDriversLicenseStatus").input_value()).strip()
+            if lic_status_val != "Active":
+                log("WARN", f"Driver {driver_index + 1}: license status is {lic_status_val!r} just before save; forcing Active again")
+                await _force_active_license_status()
+            dd_val = (await page.locator("#MainContent_ddlDefensiveDriverCourse").input_value()).strip() if await page.locator("#MainContent_ddlDefensiveDriverCourse").count() > 0 else "n/a"
+            if dd_val.lower() not in ("false", "no", "n", "0", "none", "n/a"):
+                log("WARN", f"Driver {driver_index + 1}: defensive driver is {dd_val!r} just before save; forcing No again")
+                await _force_defensive_driver_course_no()
             await page.click("#MainContent_btnSaveDriver")
             await page.wait_for_load_state("networkidle")
             if await page.locator("#lstErrors li").count() > 0:
                 err2 = (await page.locator("#lstErrors").inner_text()).strip()
                 if err2:
-                    raise RuntimeError(
-                        f"Driver {driver_index + 1} ({fn_a} {ln_a}) save blocked by validation: {err2}"
-                    )
+                    # After a failed save the page reloads — for 55+ drivers the defensive driver
+                    # field is now visible ($(document).ready ran DefensiveDriverCourseVisibilityToggle).
+                    # Re-force it and retry the save once before giving up.
+                    if "defensive driver" in err2.lower():
+                        log("WARN", f"Driver {driver_index + 1}: defensive driver required after save — field now visible; re-forcing and retrying")
+                        await _force_defensive_driver_course_no()
+                        await _force_active_license_status()
+                        await _force_losses_in_5_years_no()
+                        await _force_years_experience_four()
+                        await page.click("#MainContent_btnSaveDriver")
+                        await page.wait_for_load_state("networkidle")
+                        if await page.locator("#lstErrors li").count() > 0:
+                            err2 = (await page.locator("#lstErrors").inner_text()).strip()
+                            if err2:
+                                raise RuntimeError(
+                                    f"Driver {driver_index + 1} ({fn_a} {ln_a}) save blocked after defensive-driver retry: {err2}"
+                                )
+                    else:
+                        raise RuntimeError(
+                            f"Driver {driver_index + 1} ({fn_a} {ln_a}) save blocked by validation: {err2}"
+                        )
         log("INFO", f"Additional driver row {driver_index + 1} saved ({fn_a} {ln_a})")
 
     async def _process_all_additional_drivers() -> None:
@@ -3170,6 +3483,20 @@ async def page_11_driver(page: Page, contact: dict) -> None:
     navigated = False
     for attempt in range(4):
         log("INFO", f"Driver Agreement & Continue attempt {attempt + 1}")
+        
+        incomplete_count = 0
+        try:
+            incomplete_count = await page.locator("#MainContent_gvDrivers tbody tr", has_text=re.compile(r"uninitializ|incomplete", re.I)).count()
+        except Exception:
+            pass
+
+        if incomplete_count > 0:
+            log("INFO", "Incomplete driver on grid — re-opening and filling all additional drivers before checking terms.")
+            try:
+                await _process_all_additional_drivers()
+            except Exception as fill_exc:
+                log("WARN", f"Additional driver refill failed: {fill_exc}")
+            continue
         
         try:
             tc_triggers = page.locator(
@@ -3246,6 +3573,7 @@ async def page_11_driver(page: Page, contact: dict) -> None:
                     try:
                         await _force_active_license_status()
                         await _force_losses_in_5_years_no()
+                        await _force_defensive_driver_course_no()
                         await _force_years_experience_four()
                         await page.click("#MainContent_btnSaveDriver", timeout=10000)
                         await page.wait_for_load_state("networkidle")
@@ -4620,7 +4948,7 @@ async def _premium_summary_wait_processing(page: Page, timeout_ms: int = 60000) 
         await page.wait_for_timeout(800)
 
 
-async def _premium_summary_select_if_needed(page: Page, selector: str, value: str) -> None:
+async def _premium_summary_select_if_needed(page: Page, selector: str, value: str, *, retries: int = 3) -> None:
     loc = page.locator(selector).first
     if await loc.count() == 0:
         log("WARN", f"Premium summary dropdown not found: {selector}")
@@ -4631,12 +4959,23 @@ async def _premium_summary_select_if_needed(page: Page, selector: str, value: st
             return
     except Exception:
         pass
-    try:
-        await loc.select_option(value=value, timeout=15000)
-        log("INFO", f"Set {selector} -> {value!r}")
-    except Exception as exc:
-        log("WARN", f"Could not set {selector} to {value!r}: {exc}")
-        return
+    last_exc: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            await loc.wait_for(state="visible", timeout=10000)
+            await loc.select_option(value=value, timeout=15000)
+            actual = (await loc.input_value()).strip()
+            if actual == value:
+                log("INFO", f"Set {selector} -> {value!r}" + (f" (attempt {attempt})" if attempt > 1 else ""))
+                await _premium_summary_wait_processing(page)
+                return
+            log("WARN", f"{selector}: selected but value is {actual!r} not {value!r} — retrying ({attempt}/{retries})")
+        except Exception as exc:
+            last_exc = exc
+            log("WARN", f"{selector}: attempt {attempt}/{retries} failed: {exc}")
+        if attempt < retries:
+            await page.wait_for_timeout(1500)
+    log("WARN", f"Could not set {selector} to {value!r} after {retries} attempts: {last_exc}")
     await _premium_summary_wait_processing(page)
 
 
@@ -5456,6 +5795,8 @@ async def run_bot(contact: dict) -> dict:
             results["error"] = str(e)
             await _save_html(page, "error")
             await _save_screenshot(page, "error")
+            log("INFO", "Waiting 5s before closing browser so you can inspect the failure...")
+            await asyncio.sleep(5)
 
         finally:
             await browser.close()
