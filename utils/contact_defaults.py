@@ -6,19 +6,6 @@ Backup values for GHL contacts before the worker calls bridge_bot.
 Applied when standard or custom-mapped fields are empty so quotes can still run.
 Vehicles are NEVER defaulted — at least one real vehicle (year/make/model or VIN)
 must be present or the worker stops the job.
-
-bridge_bot.py has separate portal-level fallbacks during automation — not changed here.
-
-Backup values in this module (worker/GHL enrichment layer):
-  maritalStatus  → Single     (bridge_bot: _driver_marital_portal_value default)
-  occupation     → Manager    (user request; bridge maps unknown → Other dropdown)
-  gender         → Male        (bridge_bot: _driver_gender_portal_value default)
-  dateOfBirth    → 1980-06-29  (bridge_bot test fixture)
-  address/phone  → Atlanta GA placeholders when missing
-
-Portal-only defaults inside bridge_bot (unchanged):
-  year_built → 1995, square_footage → 2200, stories → 2, coverage_a → 452937
-  prior carrier → Allstate, gender portal → M/F, education → 4, etc.
 """
 
 from __future__ import annotations
@@ -42,6 +29,13 @@ CONTACT_BACKUP_DEFAULTS: dict[str, str] = {
     "address1": "123 Main St",
     "city": "Atlanta",
     "email": "noreply@example.com",
+    # Prior policy defaults
+    "prior_carrier_home": "Allstate Ins Co",
+    "prior_expiration": "05/14/2026",
+    "years_continuous_ins": "4",
+    # Property defaults
+    "year_built": "2000",
+    "square_footage": "2200",
 }
 
 _FIELD_ALIASES: dict[str, tuple[str, ...]] = {
@@ -56,6 +50,11 @@ _FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "address1": ("address1", "address"),
     "city": ("city",),
     "email": ("email",),
+    "prior_carrier_home": ("prior_carrier_home", "prior_carrier", "current_insurer", "current_home_carrier"),
+    "prior_expiration": ("prior_expiration", "priorExpiration", "prior_policy_expiration"),
+    "years_continuous_ins": ("years_continuous_ins", "yearsContinuousPropertyInsurance", "continuous_insurance_years"),
+    "year_built": ("year_built", "yearBuilt"),
+    "square_footage": ("square_footage", "squareFootage", "sqft"),
 }
 
 _VEHICLE_SIGNAL_KEYS = ("year", "make", "model", "submodel", "vin_prefix", "vin")
