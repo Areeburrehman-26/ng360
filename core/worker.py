@@ -104,6 +104,8 @@ async def run_worker():
             # Fetch full contact data from GHL
             try:
                 contact = enrich_contact_from_custom_fields(await get_contact(job.contact_id))
+                if job.state:
+                    contact["state"] = job.state.strip().upper()
             except GHLError as exc:
                 error_msg = f"GHL fetch failed: {exc}"
                 logger.error("[worker] GHL fetch failed for job %s: %s", job.job_id, exc)
@@ -121,11 +123,11 @@ async def run_worker():
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue
 
-            # Run the 14-page National General automation with a 600s (10-minute) watchdog timeout
+            # Run the 14-page National General automation with a 1800s (30-minute) watchdog timeout
             try:
-                result = await asyncio.wait_for(run_bot(contact), timeout=600.0)
+                result = await asyncio.wait_for(run_bot(contact), timeout=1800.0)
             except asyncio.TimeoutError:
-                error_msg = "Watchdog Timeout: The quote took longer than 600 seconds and was killed."
+                error_msg = "Watchdog Timeout: The quote took longer than 1800 seconds and was killed."
                 logger.error("[worker] Job %s failed: %s", job.job_id, error_msg)
                 await _fail_job(job, error_msg)
                 await asyncio.sleep(POLL_INTERVAL_S)

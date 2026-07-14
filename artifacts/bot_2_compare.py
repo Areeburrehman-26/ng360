@@ -763,160 +763,6 @@ async def _apply_uw_answers(page: Page, questions: list[dict], answers: dict) ->
         log("WARN", f"UW question not answered — needs review: [{q.get('question_num')}] {q.get('label')!r}")
 
 
-# --- AI-driven blank required-field answering (Driver Information, and any
-# other page with the same "*"-marked required select/text pattern) ---
-# Unlike the Auto Underwriting questions above (which live under a known
-# id-prefix), Driver Information's yes/no questions each have their own
-# distinct, unrelated id (ddlActivePolicy, ddlDriverTrainingCourse, etc.) and
-# many are conditionally hidden via JS depending on driver age/state. So
-# instead of an id-prefix scrape, this generically finds every VISIBLE,
-# REQUIRED (label class="required"), currently-BLANK select/text field on
-# the page — same "scrape -> AI answer -> apply" shape as the UW helpers.
-
-_DRIVER_INFO_SYSTEM_PROMPT = """You are filling out an auto insurance driver information questionnaire on
-behalf of an insurance agency (Trustwell Insurance). You will be given a JSON
-list of currently blank, required questions on the page, each with:
-  - field_id   : the HTML element id to answer
-  - field_type : "select" (dropdown) or "text" (free text input)
-  - label      : the exact question text
-  - options    : for "select" fields, the list of {value, label} choices
-                  available (only pick from these — never invent a value)
-
-Return ONLY a JSON object mapping field_id -> the value to set, for every
-question you can confidently answer using the RULES below. Same strict
-requirements as always: match option values exactly, omit anything not
-covered by a rule instead of guessing, never touch coverage/premium fields,
-return raw JSON only.
-
-RULES:
-  1. "Have you been a listed driver on an active policy that has been
-     continuously in force for the previous three years with National
-     General or Encompass?" -> No (false). This is a new lead being quoted
-     for the first time, not an existing NatGen/Encompass policyholder —
-     answering Yes would misrepresent the applicant.
-  2. "Have you completed a Driver Training course?" (or any Driver/Motorcycle
-     Training Course completion question) -> No (false), unless our data
-     explicitly confirms completion — we have no basis to claim this
-     discount-qualifying fact otherwise.
-  3. Any other yes/no eligibility question not covered above -> default to
-     No (false).
-  4. Never touch coverage/limit/deductible/premium fields — out of scope."""
-
-
-def _driver_fallback_answer(question: dict) -> str | None:
-    label = question.get("label") or ""
-    field_type = question.get("field_type")
-    options = {opt["value"] for opt in (question.get("options") or [])}
-
-    def _pick(value: str) -> str | None:
-        return value if not options or value in options else None
-
-    if _uw_label_match(label, "continuously in force", "national general or encompass"):
-        return _pick("False")
-    if _uw_label_match(label, "training course") and _uw_label_match(label, "completed"):
-        return _pick("False")
-    if field_type == "select":
-        return _pick("False")
-    return None
-
-
-def _driver_answer_locally(questions: list[dict]) -> dict:
-    answers: dict[str, str] = {}
-    for q in questions:
-        val = _driver_fallback_answer(q)
-        if val is not None:
-            answers[q["field_id"]] = val
-    return answers
-
-
-def _gemini_answer_driver_sync(questions: list[dict]) -> dict:
-    if not questions:
-        return {}
-
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    if not api_key:
-        log("WARN", "GEMINI_API_KEY not set; using local driver question matcher")
-        return _driver_answer_locally(questions)
-
-    try:
-        import google.generativeai as genai
-    except ImportError as exc:
-        log("WARN", f"google-generativeai not installed ({exc}); using local matcher")
-        return _driver_answer_locally(questions)
-
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(_GEMINI_UW_MODEL)
-    prompt = (
-        f"{_DRIVER_INFO_SYSTEM_PROMPT}\n\n"
-        f"Questions on this page: {json.dumps(questions)}\n"
-    )
-
-    try:
-        response = model.generate_content(prompt)
-        text = getattr(response, "text", None) or ""
-        raw = text.strip()
-        fence = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw, re.I)
-        if fence:
-            raw = fence.group(1).strip()
-        start, end = raw.find("{"), raw.rfind("}")
-        if start >= 0 and end > start:
-            raw = raw[start:end + 1]
-        answers = json.loads(raw)
-        if not isinstance(answers, dict):
-            raise ValueError("Gemini JSON root must be an object")
-        answers = {k: str(v) for k, v in answers.items()}
-        log("INFO", f"Gemini answered {len(answers)}/{len(questions)} driver question(s)")
-    except Exception as exc:
-        log("WARN", f"Gemini driver answer failed ({exc}); using local matcher")
-        return _driver_answer_locally(questions)
-
-    valid_ids = {q["field_id"] for q in questions}
-    return {fid: val for fid, val in answers.items() if fid in valid_ids}
-
-
-async def _scrape_blank_required_fields(page: Page, scope_selector: str) -> list[dict]:
-    """Scrape every visible, required (label class="required"), currently
-    blank select/text field inside scope_selector."""
-    return await page.locator(scope_selector).evaluate(
-        """(scope) => {
-            const out = [];
-            const isVisible = (el) => !!el && el.offsetParent !== null;
-            scope.querySelectorAll('select, input[type="text"]').forEach((el) => {
-                if (el.disabled || !isVisible(el)) return;
-                const label = document.querySelector(`label[for="${el.id}"]`);
-                if (!label || !label.classList.contains('required') || !isVisible(label)) return;
-                const value = (el.value || '').trim();
-                if (value !== '' && value !== '-1') return;
-                const entry = {
-                    field_id: el.id,
-                    field_type: el.tagName.toLowerCase() === 'select' ? 'select' : 'text',
-                    label: label.textContent.replace(/\\s+/g, ' ').trim(),
-                    options: null,
-                };
-                if (entry.field_type === 'select') {
-                    entry.options = Array.from(el.options).map(o => ({value: o.value, label: o.text.trim()}));
-                }
-                out.push(entry);
-            });
-            return out;
-        }"""
-    )
-
-
-async def _ai_fill_blank_required_fields(page: Page, scope_selector: str) -> None:
-    """Scrape every visible, required, blank field in scope_selector, answer
-    it via Gemini (falling back to local rules), and fill it in. Used for
-    pages like Driver Information where questions like "listed driver on an
-    active policy..." or "completed a Driver Training course?" appear under
-    unpredictable, page-specific ids rather than a shared index pattern."""
-    questions = await _scrape_blank_required_fields(page, scope_selector)
-    if not questions:
-        return
-    log("INFO", f"Found {len(questions)} blank required field(s) in {scope_selector} — answering via AI")
-    answers = await asyncio.to_thread(_gemini_answer_driver_sync, questions)
-    await _apply_uw_answers(page, questions, answers)
-
-
 def _log_recent_otp_candidates_from_imessage(lookback_minutes: int = 30, limit: int = 200) -> None:
     db_path = Path.home() / "Library" / "Messages" / "chat.db"
     if not db_path.exists():
@@ -2411,10 +2257,10 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
         # License state — only if blank
         await _fill_ddl_if_blank("#MainContent_ddlLicenseState", "GA")
 
-        # Years experience — always force to "4", overwriting anything already there
+        # Years experience — only if blank
         if await page.locator("#MainContent_txtYearsExperience").count() > 0:
             cur_exp = (await page.locator("#MainContent_txtYearsExperience").first.input_value()).strip()
-            if cur_exp != "4":
+            if not cur_exp:
                 await page.fill("#MainContent_txtYearsExperience", "4")
                 await asyncio.sleep(random.uniform(6, 10))
                 await page.locator("#MainContent_txtYearsExperience").evaluate(
@@ -2435,12 +2281,6 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
                 await page.fill("#MainContent_txtDriversLicenseNumber", lic_val)
                 await asyncio.sleep(random.uniform(6, 10))
 
-        # AI-answer any remaining blank required questions (e.g. "listed
-        # driver on an active policy...", "completed a Driver Training
-        # course?") — these appear under unpredictable, driver/state-specific
-        # ids so they aren't handled by the field-by-field fills above.
-        await _ai_fill_blank_required_fields(page, "body")
-
         # Save the driver form — retry up to 5 times if grid doesn't reappear
         for _save_attempt in range(5):
             save_btn = page.locator("#MainContent_btnSaveDriver")
@@ -2458,11 +2298,6 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             # Re-fill required fields and try again
             log("INFO", f"Driver save attempt {_save_attempt + 1}: grid not visible, retrying fill")
             await asyncio.sleep(random.uniform(6, 10))
-
-            # Some required questions only become visible after other fields
-            # are set (JS show/hide based on age/relationship/etc.) — check
-            # again for anything newly-visible and blank.
-            await _ai_fill_blank_required_fields(page, "body")
 
             # Re-fill only the fields most likely to cause validation failure
             rel_retry = page.locator("xpath=/html/body/form/div[3]/div[2]/div[8]/div[4]/fieldset/ul[1]/li[7]/select")
@@ -2518,7 +2353,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
 
             if await page.locator("#MainContent_txtYearsExperience").count() > 0:
                 cur_exp = (await page.locator("#MainContent_txtYearsExperience").first.input_value()).strip()
-                if cur_exp != "4":
+                if not cur_exp:
                     await page.fill("#MainContent_txtYearsExperience", "4")
                     await asyncio.sleep(random.uniform(6, 10))
                     await page.locator("#MainContent_txtYearsExperience").evaluate(
