@@ -31,6 +31,14 @@ FIELD_ID_PRICE        = "FbUGPnB3rSRHDU52RV2d"  # contact.fire_price         ✓
 FIELD_ID_QUOTE_STATUS = "WxZtUOwNYitB1ZRKxzgY"  # contact.fire_quote_status  ✓ VERIFIED
 FIELD_ID_NOT_ELIGIBLE = "Ni7UAcQDhxsWG6OwnBdh"  # contact.not_eligible       ✓ VERIFIED
 
+# Shared "fire" quote fields (re-used from HOA bot) — NG360 writes here too.
+FIELD_ID_FIRE_QUOTE_CARRIER = "lyITEnA8S9MIhwHptA0h"  # contact.fire_quote_carrier
+FIELD_ID_UPLOAD_FIRE_QUOTE  = "qVEG1fZUdiWLzRBNxGgP"  # contact.upload_fire_quote (TEXT - URL)
+
+# Current monthly auto price — compared against the NG360 auto quote (annual/12).
+FIELD_ID_AUTO_PRICE = "D1gY1lj17CfHwUIKprgH"  # contact.auto_price (monthly)
+FIELD_ID_AUTO_QUOTE_CARRIER = "c8kKkhrqtFZbQZDsSXhA"  # contact.auto_quote_carrier
+
 # NG360 quote output — wired in record_successful_quote()
 FIELD_ID_NG_QUOTE_PRICE  = "0hirh8xfnKhXkh2PZtro"  # contact.national_general_quote_price
 FIELD_ID_NG_QUOTE_PDF    = "5ZZDrU61kWXa0Am4mHDg"  # contact.upload_national_general_auto_quote

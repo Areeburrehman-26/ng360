@@ -26,7 +26,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from core.queue_manager import queue_manager, JobStatus
-from core.bridge_bot import run_bot
+from core.bridge_bot import run_bot, classify_bot_error
 from core.logging_setup import configure_logging
 from services.drive_uploader import upload_quote_pdf
 from services.ghl_client import (
@@ -107,7 +107,7 @@ async def run_worker():
                 if job.state:
                     contact["state"] = job.state.strip().upper()
             except GHLError as exc:
-                error_msg = f"GHL fetch failed: {exc}"
+                _, error_msg = classify_bot_error(f"GHL fetch failed: {exc}")
                 logger.error("[worker] GHL fetch failed for job %s: %s", job.job_id, exc)
                 await _fail_job(job, error_msg)
                 await asyncio.sleep(POLL_INTERVAL_S)
@@ -116,25 +116,28 @@ async def run_worker():
             # Backup defaults for driver/address fields; vehicles must be real GHL data.
             if not contact_has_vehicles(contact):
                 error_msg = (
-                    "Missing required vehicle data — at least one vehicle with "
-                    "year/make/model (or VIN) is required"
+                    "DATA ISSUE — Missing required vehicle data: at least one vehicle with "
+                    "year/make/model (or VIN) is required in GHL"
                 )
                 await _fail_job(job, error_msg, missing_data=True)
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue
 
-            # Run the 14-page National General automation with a 1800s (30-minute) watchdog timeout
+            # Run the 14-page National General automation with a 2700s (45-minute) watchdog timeout
             try:
-                result = await asyncio.wait_for(run_bot(contact), timeout=1800.0)
+                result = await asyncio.wait_for(run_bot(contact), timeout=2700.0)
             except asyncio.TimeoutError:
-                error_msg = "Watchdog Timeout: The quote took longer than 1800 seconds and was killed."
+                _, error_msg = classify_bot_error(
+                    "Watchdog Timeout: The quote took longer than 2700 seconds and was killed."
+                )
                 logger.error("[worker] Job %s failed: %s", job.job_id, error_msg)
                 await _fail_job(job, error_msg)
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue
             except Exception as exc:
                 logger.exception("[worker] run_bot crashed for job %s", job.job_id)
-                await _fail_job(job, str(exc))
+                _, error_msg = classify_bot_error(exc)
+                await _fail_job(job, error_msg)
                 await asyncio.sleep(POLL_INTERVAL_S)
                 continue
 

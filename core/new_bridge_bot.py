@@ -31,6 +31,102 @@ load_dotenv()
 def log(level: str, msg: str) -> None:
     print(f"[new_bridge_bot][{level}] {msg}", flush=True)
 
+
+async def _retry_step(func, *, attempts: int = 3, delay_s: float = 3.0, label: str = "step"):
+    """Retry an async no-arg callable on any exception, with a short delay
+    between attempts. Re-raises the last exception if every attempt fails.
+    Used on Login/menu/dropdown steps that are prone to one-off portal
+    slowness rather than a genuine data/selector problem."""
+    last_exc: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return await func()
+        except Exception as exc:
+            last_exc = exc
+            log("WARN", f"{label}: attempt {attempt}/{attempts} failed: {exc}")
+            if attempt < attempts:
+                await asyncio.sleep(delay_s)
+    log("WARN", f"{label}: all {attempts} attempts failed")
+    raise last_exc
+
+# ---------------------------------------------------------------------------
+# Error classification — turn a raw Python/Playwright exception into a
+# plain-English message that also says whether this looks like a DATA
+# problem (missing/invalid GHL field, portal rejected the data) or a
+# TECHNICAL problem (selector/timing/parsing bug in the bot itself).
+#
+# This only claims "data" when there's real evidence for it — a named
+# missing field, a portal validation message, a stuck-Unrated rate, or a
+# Continue/navigation failure (which on this portal's ASP.NET forms almost
+# always means a required field failed server-side validation). A bare
+# timeout with no such evidence is still surfaced honestly as "likely data
+# issue" rather than asserted as certain, since portal slowness is also
+# possible — but it is NOT hidden as a vague technical error either, per
+# operator experience that most of these trace back to data.
+# ---------------------------------------------------------------------------
+
+def classify_bot_error(exc: Exception | str) -> tuple[str, str]:
+    """Return (category, message) where category is "data" or "technical"."""
+    text = str(exc).strip()
+    lower = text.lower()
+
+    if text.startswith("Missing contact field:"):
+        field = text.split(":", 1)[-1].strip()
+        return "data", (
+            f"DATA ISSUE — Missing required contact field {field} in GHL. "
+            f"Fill this in and re-run the quote."
+        )
+
+    if "vehicle validation blocked continue" in lower:
+        return "data", f"DATA ISSUE — Portal rejected the vehicle data on Continue: {text}"
+
+    if "could not click continue" in lower:
+        return "data", (
+            f"DATA ISSUE — Continue never became clickable, which usually means a required "
+            f"field on this page was left blank or invalid in GHL. Detail: {text}"
+        )
+
+    if "re-rate failed" in lower or "did not produce a rated total row" in lower:
+        return "data", (
+            f"DATA ISSUE — The carrier portal could not calculate a rate (stayed Unrated). "
+            f"The portal itself is reporting the quote data is incomplete/invalid. Detail: {text}"
+        )
+
+    if "could not extract total premium" in lower:
+        return "data", (
+            f"DATA ISSUE — Quote finished but the portal never showed a premium — the rate "
+            f"table came back empty, which the portal attributes to invalid quote data. Detail: {text}"
+        )
+
+    if "prefill" in lower and ("fail" in lower or "could not" in lower or "error" in lower):
+        return "data", (
+            f"DATA ISSUE — Prefill could not complete, usually because the contact's address "
+            f"or another prefill-dependent field is wrong in GHL. Detail: {text}"
+        )
+
+    if "invalid phone number format" in lower:
+        return "data", f"DATA ISSUE — {text}. Fix the phone number format in GHL."
+
+    if "cannot parse date" in lower:
+        return "data", f"DATA ISSUE — {text}. Fix this date field's format in GHL."
+
+    if "watchdog timeout" in lower:
+        return "data", (
+            f"DATA ISSUE (likely) — The bot got stuck and was killed by the watchdog. A stall "
+            f"this long usually means the bot is stuck retrying against a field the portal "
+            f"won't accept rather than a genuine infinite loop. Detail: {text}"
+        )
+
+    if ("timeout" in lower and "exceeded" in lower) or "timed out" in lower:
+        return "data", (
+            f"DATA ISSUE (likely) — A step on the portal timed out waiting for a response. "
+            f"On this bot, timeouts at this stage are usually caused by a required field the "
+            f"portal could not validate rather than a network problem. Detail: {text}"
+        )
+
+    return "technical", f"TECHNICAL ISSUE — {text}"
+
+
 def _normalize_contact_payload(payload: dict) -> dict:
     if isinstance(payload, dict) and isinstance(payload.get("contact"), dict):
         return payload["contact"]
@@ -747,7 +843,7 @@ async def _apply_uw_answers(page: Page, questions: list[dict], answers: dict) ->
         selector = f"#{field_id}"
         try:
             if question["field_type"] == "select":
-                await page.select_option(selector, value, timeout=5000)
+                await page.select_option(selector, value, timeout=90000)
             else:
                 await page.fill(selector, value)
             log("INFO", f"UW answered [{question.get('question_num')}] {question.get('label')!r} -> {value!r}")
@@ -1102,8 +1198,8 @@ async def _p15_select_if_needed(page: Page, selector: str, value: str, *, retrie
     last_exc: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
-            await loc.wait_for(state="visible", timeout=10000)
-            await loc.select_option(value=value, timeout=15000)
+            await loc.wait_for(state="visible", timeout=90000)
+            await loc.select_option(value=value, timeout=90000)
             actual = (await loc.input_value()).strip()
             if actual == value:
                 log("INFO", f"Set {selector} -> {value!r}" + (f" (attempt {attempt})" if attempt > 1 else ""))
@@ -1123,7 +1219,7 @@ async def _p15_wait_ready(page: Page) -> None:
     await page.wait_for_selector(
         f"{_P15_RERATE_BTN}, {_P15_PAY_METHOD_SEL}",
         state="attached",
-        timeout=30000,
+        timeout=90000,
     )
     await _p15_wait_processing(page)
 
@@ -1132,11 +1228,11 @@ async def _p15_wait_payment_ready(page: Page) -> None:
     await page.wait_for_selector(
         f"{_P15_PAY_METHOD_SEL}, {_P15_PAY_PLAN_SEL}",
         state="attached",
-        timeout=30000,
+        timeout=90000,
     )
     for sel in (_P15_TERM_SEL, _P15_DRAFT_DAY_SEL):
         try:
-            await page.wait_for_selector(sel, state="attached", timeout=15000)
+            await page.wait_for_selector(sel, state="attached", timeout=90000)
         except Exception:
             pass
     await _p15_wait_processing(page)
@@ -1161,9 +1257,9 @@ async def _p15_select_term_if_needed(page: Page) -> None:
         ):
             try:
                 if label:
-                    await loc.select_option(label=label, timeout=10000)
+                    await loc.select_option(label=label, timeout=90000)
                 else:
-                    await loc.select_option(value=value, timeout=10000)
+                    await loc.select_option(value=value, timeout=90000)
                 log("INFO", f"Set {sel} -> {value!r}")
                 await _p15_wait_processing(page)
                 return
@@ -1224,7 +1320,7 @@ async def _p15_click_rerate(page: Page) -> bool:
         panel = page.locator(panel_sel).first
         if await panel.count() > 0:
             try:
-                await panel.scroll_into_view_if_needed(timeout=8000)
+                await panel.scroll_into_view_if_needed(timeout=90000)
             except Exception:
                 pass
 
@@ -1232,8 +1328,8 @@ async def _p15_click_rerate(page: Page) -> bool:
     clicked = False
     for attempt, (label, fn) in enumerate(
         (
-            ("click", lambda: rerate.click(timeout=15000, no_wait_after=True)),
-            ("force click", lambda: rerate.click(timeout=15000, force=True, no_wait_after=True)),
+            ("click", lambda: rerate.click(timeout=90000, no_wait_after=True)),
+            ("force click", lambda: rerate.click(timeout=90000, force=True, no_wait_after=True)),
             (
                 "js click",
                 lambda: page.evaluate(
@@ -1259,9 +1355,40 @@ async def _p15_click_rerate(page: Page) -> bool:
     try:
         await _p15_wait_rated(page, timeout_ms=90000)
         log("INFO", "Premium Summary rated — rate table ready")
+        return True
     except Exception:
-        log("WARN", "Timed out waiting for rated Total row after Re-Rate")
-    return True
+        # The click succeeded but the portal never produced a rated "Total"
+        # row — it's stuck "Unrated". This is usually caused by something on
+        # an earlier page (missing coverage, an unanswered underwriting
+        # question, a vehicle/driver mismatch) blocking the rating engine.
+        # Surface the portal's own status message instead of reporting
+        # success and failing later with a vague "could not extract
+        # premium" error far from the real cause.
+        reason = await _p15_rate_failure_reason(page)
+        log("WARN", f"Re-Rate did not produce a rated Total row — {reason}")
+        return False
+
+
+async def _p15_rate_failure_reason(page: Page) -> str:
+    """Best-effort read of the portal's own rate-status/error text, for
+    logging when Re-Rate never reaches a rated Total row."""
+    try:
+        msg_loc = page.locator("#MainContent_ucRater_lblRateMessage").first
+        if await msg_loc.count() > 0:
+            msg = (await msg_loc.inner_text()).strip()
+            if msg:
+                return f"portal rate message: {msg!r}"
+    except Exception:
+        pass
+    try:
+        err_loc = page.locator("#lstErrors li").first
+        if await err_loc.count() > 0:
+            err = (await page.locator("#lstErrors").inner_text()).strip()
+            if err:
+                return f"portal validation errors: {err!r}"
+    except Exception:
+        pass
+    return "no rate message or validation errors found on page — unknown cause"
 
 
 async def _p15_extract_rates(page: Page) -> dict[str, str]:
@@ -1451,7 +1578,7 @@ async def _p15_wait_for_popup(
         for candidate in context.pages:
             if _p15_is_quote_proposal_popup(candidate, main_page):
                 try:
-                    await candidate.wait_for_load_state("domcontentloaded", timeout=10000)
+                    await candidate.wait_for_load_state("domcontentloaded", timeout=90000)
                 except Exception:
                     pass
                 log("INFO", f"Quote Proposal popup detected: {(candidate.url or '')[:120]}")
@@ -1462,7 +1589,7 @@ async def _p15_wait_for_popup(
             new_page = await context.wait_for_event("page", timeout=min(3000, remaining_ms))
             if _p15_is_quote_proposal_popup(new_page, main_page):
                 try:
-                    await new_page.wait_for_load_state("domcontentloaded", timeout=10000)
+                    await new_page.wait_for_load_state("domcontentloaded", timeout=90000)
                 except Exception:
                     pass
                 log("INFO", f"Quote Proposal popup opened: {(new_page.url or '')[:120]}")
@@ -1549,7 +1676,7 @@ async def _p15_wait_and_save_popup_pdf(
     popup.on("response", on_response)
     try:
         try:
-            await popup.wait_for_load_state("domcontentloaded", timeout=30000)
+            await popup.wait_for_load_state("domcontentloaded", timeout=90000)
         except Exception:
             pass
 
@@ -1581,12 +1708,12 @@ async def _p15_wait_and_save_popup_pdf(
 async def _p15_click_quote_proposal(page: Page, btn) -> None:
     await _p15_wait_processing(page)
     try:
-        await btn.scroll_into_view_if_needed(timeout=8000)
+        await btn.scroll_into_view_if_needed(timeout=90000)
     except Exception:
         pass
     log("INFO", "Clicking Quote Proposal")
     try:
-        await btn.click(timeout=15000, no_wait_after=True)
+        await btn.click(timeout=90000, no_wait_after=True)
         log("INFO", "Quote Proposal click sent (no_wait_after)")
         return
     except Exception as exc:
@@ -1686,15 +1813,20 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
         await page.wait_for_load_state("domcontentloaded")
 
     if "MainMenu.aspx" not in page.url:
-        await page.wait_for_selector("#txtUserID", state="visible", timeout=30000)
-        await page.fill("#txtUserID", username)
-        await page.click("#btnLogin")
+        async def _enter_username():
+            await page.wait_for_selector("#txtUserID", state="visible", timeout=90000)
+            await page.fill("#txtUserID", username)
+            await page.click("#btnLogin")
+        await _retry_step(_enter_username, label="login/username")
 
         if "MainMenu.aspx" not in page.url:
             await asyncio.sleep(5)
-            await page.wait_for_selector("#Password", state="visible")
-            await page.fill("#Password", password)
-            await page.click("button[type='submit']")
+
+            async def _enter_password():
+                await page.wait_for_selector("#Password", state="visible")
+                await page.fill("#Password", password)
+                await page.click("button[type='submit']")
+            await _retry_step(_enter_password, label="login/password")
 
             if "MainMenu.aspx" not in page.url:
                 await page.click("#loginWith2faSms")
@@ -1710,15 +1842,18 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
 
     # --- PAGE 2: STATE + PRODUCT SELECT (MainMenu.aspx) ---
     _quote_state = (contact.get("state") or "GA").strip().upper()
-    await page.locator("xpath=/html/body/div[1]/div/form/div[3]/table[2]/tbody/tr/td/div/div[1]/div[3]/div[2]/select[1]").select_option(_quote_state)
-    await asyncio.sleep(random.uniform(6, 10))
-    if _quote_state == "GA":
-        await page.locator("xpath=/html/body/div[1]/div/form/div[3]/table[2]/tbody/tr/td/div/div[1]/div[3]/div[2]/select[2]").select_option("Custom360 Package 2.0")
-    if _quote_state == "SC" or _quote_state == "TN":
-        await page.locator("xpath=/html/body/div[1]/div/form/div[3]/table[2]/tbody/tr/td/div/div[1]/div[3]/div[2]/select[2]").select_option("Custom360 Package")
-    await asyncio.sleep(random.uniform(6, 10))
-    await page.locator("xpath=/html/body/div[1]/div/form/div[3]/table[2]/tbody/tr/td/div/div[1]/div[3]/div[2]/span").click()
-    await page.wait_for_url("**/ClientSearch*", timeout=30000)
+
+    async def _select_state_and_product():
+        await page.locator("xpath=/html/body/div[1]/div/form/div[3]/table[2]/tbody/tr/td/div/div[1]/div[3]/div[2]/select[1]").select_option(_quote_state)
+        await asyncio.sleep(random.uniform(6, 10))
+        if _quote_state == "GA":
+            await page.locator("xpath=/html/body/div[1]/div/form/div[3]/table[2]/tbody/tr/td/div/div[1]/div[3]/div[2]/select[2]").select_option("Custom360 Package 2.0")
+        if _quote_state == "SC" or _quote_state == "TN":
+            await page.locator("xpath=/html/body/div[1]/div/form/div[3]/table[2]/tbody/tr/td/div/div[1]/div[3]/div[2]/select[2]").select_option("Custom360 Package")
+        await asyncio.sleep(random.uniform(6, 10))
+        await page.locator("xpath=/html/body/div[1]/div/form/div[3]/table[2]/tbody/tr/td/div/div[1]/div[3]/div[2]/span").click()
+        await page.wait_for_url("**/ClientSearch*", timeout=90000)
+    await _retry_step(_select_state_and_product, label="page2/state_product_select")
     log("INFO", "On Client Search page")
     await asyncio.sleep(random.uniform(12, 22))
 
@@ -1729,11 +1864,13 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
     await asyncio.sleep(random.uniform(6, 10))
     await page.fill("#MainContent_txtZipCode", _val(contact, "postalCode", "zip"))
     await asyncio.sleep(random.uniform(6, 10))
-    await page.click("#MainContent_btnSearch")
-    await page.wait_for_load_state("networkidle")
-    await page.wait_for_selector("#MainContent_btnAddNewClient", state="visible")
-    await page.click("#MainContent_btnAddNewClient")
-    await page.wait_for_url("**/ClientInfo*", timeout=30000)
+    async def _search_and_add_new_client():
+        await page.click("#MainContent_btnSearch")
+        await page.wait_for_load_state("networkidle")
+        await page.wait_for_selector("#MainContent_btnAddNewClient", state="visible")
+        await page.click("#MainContent_btnAddNewClient")
+        await page.wait_for_url("**/ClientInfo*", timeout=90000)
+    await _retry_step(_search_and_add_new_client, label="page3/search_add_new_client")
     log("INFO", "On Client Info P1 page")
     await asyncio.sleep(random.uniform(12, 22))
 
@@ -1800,14 +1937,14 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
     await page.select_option("#MainContent_ucGeneralInformation_ddlInputBy", agent_id)
     await asyncio.sleep(random.uniform(6, 10))
     await page.click("#MainContent_btnContinue")
-    await page.wait_for_url("**/Prefill*", timeout=30000)
+    await page.wait_for_url("**/Prefill*", timeout=90000)
     log("INFO", "On Prefill page")
     await asyncio.sleep(random.uniform(12, 22))
 
     # --- PAGE 6: PREFILL ---
     try:
 
-        await page.wait_for_selector("#gvPrefillDriver, #gvPrefillAuto", timeout=5000)
+        await page.wait_for_selector("#gvPrefillDriver, #gvPrefillAuto", timeout=90000)
 
         if await page.locator("#MainContent_ucPrefillDriver_btnAcceptAllDrivers").count() > 0:
             await page.click("#MainContent_ucPrefillDriver_btnAcceptAllDrivers")
@@ -1827,7 +1964,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             cb = license_cbs.nth(i)
             try:
                 if not await cb.is_checked():
-                    await cb.check(timeout=5000)
+                    await cb.check(timeout=90000)
             except Exception:
                 pass
 
@@ -1976,7 +2113,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
         if await ddl_type.count() > 0:
             for val in ("Mortgagee-Bill", "MortgageeBill", "Mortgagee"):
                 try:
-                    await ddl_type.select_option(value=val, timeout=5000)
+                    await ddl_type.select_option(value=val, timeout=90000)
                     name_attr = await ddl_type.get_attribute("name")
                     if name_attr:
                         await page.evaluate("n => { if (typeof __doPostBack === 'function') __doPostBack(n, ''); }", name_attr)
@@ -1999,7 +2136,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
 
             grid = page.locator("#MainContent_uc1PropertyAI_gvMortgageCompany")
             if await grid.count() > 0:
-                await grid.wait_for(state="visible", timeout=15000)
+                await grid.wait_for(state="visible", timeout=90000)
                 await grid.locator("tbody a").filter(has_text="Select").first.click()
                 await page.wait_for_load_state("networkidle")
             else:
@@ -2031,7 +2168,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
 
         save_btn = page.locator("#MainContent_uc1PropertyAI_btnSaveInterest").first
         if await save_btn.count() > 0:
-            await save_btn.wait_for(state="visible", timeout=15000)
+            await save_btn.wait_for(state="visible", timeout=90000)
             await save_btn.click()
             await page.wait_for_load_state("networkidle")
 
@@ -2042,7 +2179,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
 
     # --- PAGE 8: UNDERWRITING ---
     # Prior policy information
-    await page.wait_for_selector("#MainContent_ucPriorPolicyInformation_ddlPriorInsuranceCoverage", state="visible", timeout=15000)
+    await page.wait_for_selector("#MainContent_ucPriorPolicyInformation_ddlPriorInsuranceCoverage", state="visible", timeout=90000)
     await page.select_option("#MainContent_ucPriorPolicyInformation_ddlPriorInsuranceCoverage", "Prior standard insurance")
     await asyncio.sleep(random.uniform(6, 10))
 
@@ -2053,7 +2190,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
         if prior_carrier_raw:
             # Try exact value match first, then partial text match via JS
             try:
-                await carrier_ddl.select_option(value=prior_carrier_raw, timeout=3000)
+                await carrier_ddl.select_option(value=prior_carrier_raw, timeout=90000)
                 selected = True
             except Exception:
                 pass
@@ -2113,7 +2250,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
                 try:
                     await loc.select_option(value=safe_val)
                     await asyncio.sleep(random.uniform(6, 10))
-                    await page.wait_for_load_state("networkidle", timeout=8000)
+                    await page.wait_for_load_state("networkidle", timeout=90000)
                     break
                 except Exception:
                     continue
@@ -2135,7 +2272,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             try:
                 await loc.select_option(value="FlatAreaEasyAccessRoads")
                 await asyncio.sleep(random.uniform(6, 10))
-                await page.wait_for_load_state("networkidle", timeout=8000)
+                await page.wait_for_load_state("networkidle", timeout=90000)
                 continue
             except Exception:
                 pass
@@ -2143,7 +2280,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             try:
                 await loc.select_option(value="True")
                 await asyncio.sleep(random.uniform(6, 10))
-                await page.wait_for_load_state("networkidle", timeout=8000)
+                await page.wait_for_load_state("networkidle", timeout=90000)
                 continue
             except Exception:
                 pass
@@ -2152,7 +2289,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             try:
                 await loc.select_option(value=safe_val)
                 await asyncio.sleep(random.uniform(6, 10))
-                await page.wait_for_load_state("networkidle", timeout=8000)
+                await page.wait_for_load_state("networkidle", timeout=90000)
                 break
             except Exception:
                 continue
@@ -2196,8 +2333,8 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
                             except Exception:
                                 continue
 
-    await page.wait_for_selector("#MainContent_ucCoreCoverages_rptCoreCoverages_txtCovA_0", state="visible", timeout=30000)
-    await page.wait_for_selector("#MainContent_ddlPerils", state="visible", timeout=30000)
+    await page.wait_for_selector("#MainContent_ucCoreCoverages_rptCoreCoverages_txtCovA_0", state="visible", timeout=90000)
+    await page.wait_for_selector("#MainContent_ddlPerils", state="visible", timeout=90000)
 
     # Coverage A
     cov_a_raw = _contact_first(contact, "coverage_a", "coverageA", "dwelling_limit", "dwellingLimit")
@@ -2213,26 +2350,26 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
         await page.locator("#MainContent_ucCoreCoverages_rptCoreCoverages_txtCovA_0").evaluate(
             "el => { el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true})); el.blur(); }"
         )
-        await page.wait_for_load_state("networkidle", timeout=30000)
+        await page.wait_for_load_state("networkidle", timeout=90000)
 
     # Coverage B/C/D and Fair Rental
     await page.select_option("#MainContent_ucCoreCoverages_rptCoreCoverages_ddlCovB_1", "0.0500")
     await asyncio.sleep(random.uniform(6, 10))
-    await page.wait_for_load_state("networkidle", timeout=30000)
+    await page.wait_for_load_state("networkidle", timeout=90000)
     await page.select_option("#MainContent_ucCoreCoverages_rptCoreCoverages_ddlCovC_2", "0.2500")
     await asyncio.sleep(random.uniform(6, 10))
-    await page.wait_for_load_state("networkidle", timeout=30000)
+    await page.wait_for_load_state("networkidle", timeout=90000)
     await page.select_option("#MainContent_ucCoreCoverages_rptCoreCoverages_ddlCovD_3", "0.1500")
     await asyncio.sleep(random.uniform(6, 10))
-    await page.wait_for_load_state("networkidle", timeout=30000)
+    await page.wait_for_load_state("networkidle", timeout=90000)
     await page.select_option("#MainContent_ucCoreCoverages_rptCoreCoverages_ddlFairRentalValue_4", "0.0000")
     await asyncio.sleep(random.uniform(6, 10))
-    await page.wait_for_load_state("networkidle", timeout=30000)
+    await page.wait_for_load_state("networkidle", timeout=90000)
 
     # All Perils Deductible
     await page.select_option("#MainContent_ddlPerils", "0.010")
     await asyncio.sleep(random.uniform(6, 10))
-    await page.wait_for_load_state("networkidle", timeout=30000)
+    await page.wait_for_load_state("networkidle", timeout=90000)
 
     await page.click("#MainContent_btnContinue")
     await page.wait_for_load_state("networkidle")
@@ -2280,7 +2417,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
 
     # Helper: fill the driver form that is currently open on screen
     async def _fill_driver_form(is_primary: bool = False, driver_index: int = 0) -> None:
-        await page.wait_for_selector("#MainContent_txtFirstName", state="visible", timeout=20000)
+        await page.wait_for_selector("#MainContent_txtFirstName", state="visible", timeout=90000)
 
         # Name — only fill if blank (portal may have prefilled from prefill page)
         cur_fn = await _txt_val("#MainContent_txtFirstName")
@@ -2420,7 +2557,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
                 await page.locator("#MainContent_txtYearsExperience").evaluate(
                     "el => { el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true})); el.blur(); }"
                 )
-                await page.wait_for_load_state("networkidle", timeout=15000)
+                await page.wait_for_load_state("networkidle", timeout=90000)
 
         # License number — only if blank
         if await page.locator("#MainContent_txtDriversLicenseNumber").count() > 0:
@@ -2524,7 +2661,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
                     await page.locator("#MainContent_txtYearsExperience").evaluate(
                         "el => { el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true})); el.blur(); }"
                     )
-                    await page.wait_for_load_state("networkidle", timeout=15000)
+                    await page.wait_for_load_state("networkidle", timeout=90000)
 
     # Read driver grid and process all rows
     if await page.locator("#MainContent_gvDrivers").count() > 0:
@@ -2620,12 +2757,12 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             await page.wait_for_selector(
                 "a[id^='MainContent_rpVehicles_btnViewEdit_']",
                 state="visible",
-                timeout=30000,
+                timeout=90000,
             )
         except Exception:
             pass
         try:
-            await page.wait_for_load_state("networkidle", timeout=20000)
+            await page.wait_for_load_state("networkidle", timeout=90000)
         except Exception:
             await page.wait_for_timeout(800)
 
@@ -2763,13 +2900,13 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             loc = page.locator(sel).first
             if await loc.count() > 0:
                 try:
-                    async with page.expect_navigation(timeout=30000, wait_until="networkidle"):
-                        await loc.click(timeout=10000)
+                    async with page.expect_navigation(timeout=90000, wait_until="networkidle"):
+                        await loc.click(timeout=90000)
                     await _wait_for_vehicle_list_stable()
                     return True
                 except PlaywrightTimeoutError:
                     try:
-                        await loc.click(timeout=10000)
+                        await loc.click(timeout=90000)
                         await _wait_for_vehicle_list_stable()
                         return True
                     except Exception:
@@ -2777,7 +2914,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
                 except Exception:
                     pass
         try:
-            async with page.expect_navigation(timeout=30000, wait_until="networkidle"):
+            async with page.expect_navigation(timeout=90000, wait_until="networkidle"):
                 await page.evaluate(
                     f"document.getElementById('MainContent_rpVehicles_btnDelete_{row_index}')?.click()"
                 )
@@ -2873,17 +3010,17 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             log("WARN", f"View/Edit button missing for row {row_index}")
             return False
         try:
-            async with page.expect_navigation(timeout=30000, wait_until="networkidle"):
-                await page.click(edit_btn, timeout=10000)
+            async with page.expect_navigation(timeout=90000, wait_until="networkidle"):
+                await page.click(edit_btn, timeout=90000)
         except PlaywrightTimeoutError:
-            await page.click(edit_btn, timeout=10000)
+            await page.click(edit_btn, timeout=90000)
         except Exception:
             return False
         try:
             await page.wait_for_selector(
                 "#MainContent_ucVehicleInfo_txtPurchaseDate, #MainContent_ucVehicleInfo_ddlOwnershipStatus",
                 state="visible",
-                timeout=20000,
+                timeout=90000,
             )
             return True
         except Exception:
@@ -2945,15 +3082,15 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             pass
         log("INFO", f"Clicking {label} ({used_sel})")
         try:
-            async with page.expect_navigation(timeout=45000, wait_until="networkidle"):
-                await loc.click(timeout=15000)
+            async with page.expect_navigation(timeout=90000, wait_until="networkidle"):
+                await loc.click(timeout=90000)
         except PlaywrightTimeoutError:
-            await loc.click(timeout=15000)
+            await loc.click(timeout=90000)
         except Exception:
             btn_id = used_sel.split("#", 1)[-1]
             await page.evaluate(f"() => document.getElementById('{btn_id}')?.click()")
         try:
-            await page.wait_for_load_state("networkidle", timeout=25000)
+            await page.wait_for_load_state("networkidle", timeout=90000)
         except Exception:
             await page.wait_for_timeout(1200)
         err = await _vehicle_save_errors()
@@ -3128,7 +3265,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
             try:
                 btn = page.locator(sel).first
                 if await btn.count() > 0 and await btn.is_visible():
-                    await btn.click(timeout=10000)
+                    await btn.click(timeout=90000)
                     click_success = True
                     break
             except Exception:
@@ -3141,7 +3278,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
                 pass
         if click_success:
             try:
-                await page.wait_for_load_state("networkidle", timeout=10000)
+                await page.wait_for_load_state("networkidle", timeout=90000)
             except Exception:
                 pass
             if "VehicleInfo" not in page.url:
@@ -3180,7 +3317,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
     await page.wait_for_selector(
         "#MainContent_ucAutoQuestions_rpParentQuestions_ddlAnswer_0",
         state="visible",
-        timeout=30000,
+        timeout=90000,
     )
 
     _uw_questions = await _scrape_uw_questions(page, "MainContent_ucAutoQuestions_rpParentQuestions_")
@@ -3189,7 +3326,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
     await _apply_uw_answers(page, _uw_questions, _uw_answers)
 
     # Click Next — portal may return P2241 error if carrier lookup fails
-    await page.wait_for_selector("#MainContent_btnContinue", state="visible", timeout=15000)
+    await page.wait_for_selector("#MainContent_btnContinue", state="visible", timeout=90000)
     await page.evaluate("document.getElementById('MainContent_btnContinue').click()")
     await page.wait_for_load_state("networkidle")
     await asyncio.sleep(random.uniform(6, 10))
@@ -3220,7 +3357,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
         try:
             await page.wait_for_selector(
                 "#MainContent_ucPolicyCarrierInfo_ddlPriorInsCo",
-                state="visible", timeout=10000,
+                state="visible", timeout=90000,
             )
             await page.select_option("#MainContent_ucPolicyCarrierInfo_ddlPriorInsCo", "State Farm Group")
             await page.wait_for_load_state("domcontentloaded")
@@ -3253,7 +3390,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
         try:
             await page.wait_for_selector(
                 "#MainContent_ucPolicyCarrierInfo_ddlPriorMonthsWMostRecentIns:not([disabled])",
-                timeout=12000,
+                timeout=90000,
             )
             await page.select_option("#MainContent_ucPolicyCarrierInfo_ddlPriorMonthsWMostRecentIns", "35")
             await asyncio.sleep(random.uniform(6, 10))
@@ -3264,12 +3401,12 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
 
         # Click Next again after filling prior policy info
         try:
-            await page.wait_for_selector("#MainContent_btnContinue", state="visible", timeout=15000)
+            await page.wait_for_selector("#MainContent_btnContinue", state="visible", timeout=90000)
             try:
-                await page.click("#MainContent_btnContinue", timeout=10000)
+                await page.click("#MainContent_btnContinue", timeout=90000)
             except Exception:
                 try:
-                    await page.locator("#MainContent_btnContinue").first.click(force=True, timeout=10000)
+                    await page.locator("#MainContent_btnContinue").first.click(force=True, timeout=90000)
                 except Exception:
                     await page.evaluate("document.getElementById('MainContent_btnContinue').click()")
             await page.wait_for_load_state("domcontentloaded")
@@ -3285,7 +3422,7 @@ async def full_flow(page: Page, context: BrowserContext, username: str, password
     if "AutoUnderwriting" in page.url or "autounderwriting" in page.url.lower():
         log("WARNING", "Still on Auto Underwriting page — attempting one more Next click")
         try:
-            await page.click("#MainContent_btnContinue", timeout=10000)
+            await page.click("#MainContent_btnContinue", timeout=90000)
             await page.wait_for_load_state("domcontentloaded")
             await asyncio.sleep(2)
         except Exception as _e:
@@ -3354,6 +3491,7 @@ async def run_bot(contact: dict) -> dict:
             "premium": None,
             "pdf_path": None,
             "error": None,
+            "error_category": None,
             "home_premium": None,
             "auto_premium": None,
             "pay_plan": "",
@@ -3366,7 +3504,9 @@ async def run_bot(contact: dict) -> dict:
             if not results.get("error"):
                 results["success"] = True
         except Exception as exc:
-            log("ERROR", f"Bot failed: {exc}")
-            results["error"] = str(exc)
+            category, message = classify_bot_error(exc)
+            log("ERROR", message)
+            results["error"] = message
+            results["error_category"] = category
 
         return results

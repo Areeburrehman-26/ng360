@@ -167,3 +167,13 @@ async def notify_bot_health(message: str, is_critical: bool = False) -> None:
 def _now_formatted() -> str:
     """Return a human-readable UTC timestamp string."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+# ---------------------------------------------------------------------------
+# Audit alerts (quote_auditor -> #bot-alerts)
+# ---------------------------------------------------------------------------
+
+async def notify_audit_alert(header: str, issues: list) -> None:
+    """Send a quote-audit flag to the alerts channel. Fire-and-forget."""
+    lines = "\n".join(f"• {i}" for i in issues)
+    payload = {"text": f":rotating_light: *{header}*\n{lines}"}
+    await _post_to_slack(SLACK_WEBHOOK_ALERTS, payload)

@@ -500,6 +500,51 @@ async def add_tag_to_contact(contact_id: str, tag: str) -> None:
             logger.error("[ghl_client] Network error adding tag: %s", exc)
 
 
+async def add_note_to_contact(contact_id: str, body: str) -> None:
+    """Add a note to a GHL contact (v2 POST /contacts/{id}/notes)."""
+    url = f"{GHL_BASE_URL}/contacts/{contact_id}/notes"
+    payload: dict[str, str] = {"body": body}
+    user_id = os.getenv("GHL_USER_ID", "").strip()
+    if user_id:
+        payload["userId"] = user_id
+
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_S) as client:
+        try:
+            response = await client.post(url, headers=_headers(), json=payload)
+            if response.status_code in (200, 201):
+                logger.info("[ghl_client] Added note to contact %s", contact_id)
+            else:
+                logger.warning(
+                    "[ghl_client] Failed to add note to %s: %s %s",
+                    contact_id, response.status_code, response.text,
+                )
+        except Exception as exc:
+            logger.error("[ghl_client] Network error adding note: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Money helpers
+# ---------------------------------------------------------------------------
+
+def _parse_money(val: Optional[str]) -> Optional[float]:
+    """Parse '$1,234.56' -> 1234.56. Returns None for empty/zero/unparseable
+    (treated as 'no existing price')."""
+    if val is None:
+        return None
+    s = str(val).strip().replace("$", "").replace(",", "").replace(" ", "")
+    if s in ("", "0", "0.0", "0.00"):
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _fmt_money(amount: float) -> str:
+    """Format a float as '$1,234.56'."""
+    return f"${amount:,.2f}"
+
+
 # ---------------------------------------------------------------------------
 # High-level update functions
 # ---------------------------------------------------------------------------
@@ -512,29 +557,116 @@ async def record_successful_quote(
     drive_url: str,
     pay_plan: str = "",
 ) -> None:
-    """Write NG360 quote results to GHL using existing location fields.
+    """Write National General 360 home/auto bundle results to GHL.
 
-    Persists:
-      fire_price (total), fire_quote_status, auto_quote_status,
-      national_general_quote_price (auto only, when provided),
-      auto_quote_url + upload_national_general_auto_quote (Drive URL).
+    NG360 premiums are ANNUAL, so they are converted to monthly (/12) before
+    comparison. The bundle only overwrites the customer's prices when it beats
+    BOTH sides:
+      - auto (monthly) must be cheaper than the current Auto Price  (auto_price)
+      - home (monthly) must be cheaper than the current Fire Price  (fire_price)
+    A blank/absent current price counts as "no competing quote" -> that side
+    passes (we write the NG360 price in).
 
-    home_premium and pay_plan are not written — no verified GHL field IDs yet.
+    When both are cheaper, we write:
+      - auto_price          <- NG360 auto monthly
+      - fire_price          <- NG360 home monthly
+      - fire_quote_carrier  <- "National General 360"
+      - auto_quote_url      <- Drive PDF link
+      - upload_fire_quote   <- Drive PDF link
+      - fire_quote_status / auto_quote_status <- completed
+
+    EITHER WAY (cheaper or not) a note is added with the quote link.
     """
-    updates: dict[str, str] = {
-        FIELD_ID_PRICE: total_premium,
-        FIELD_ID_QUOTE_STATUS: STATUS_COMPLETED,
-        FIELD_ID_AUTO_QUOTE_STATUS: STATUS_COMPLETED,
-    }
-    auto_val = (auto_premium or "").strip()
-    if auto_val:
-        updates[FIELD_ID_NG_QUOTE_PRICE] = auto_val
-    if drive_url.strip():
-        updates[FIELD_ID_AUTO_QUOTE_URL] = drive_url.strip()
-        updates[FIELD_ID_NG_QUOTE_PDF] = drive_url.strip()
+    link = (drive_url or "").strip()
 
-    await update_contact_fields(contact_id, updates)
-    await add_tag_to_contact(contact_id, TAG_NG_SUCCESS)
+    # NG360 premiums are ANNUAL. Units differ per side:
+    #   HOME -> the Fire Price field is ANNUAL, so compare/store the annual value as-is.
+    #   AUTO -> the Auto Price field is MONTHLY, so convert annual -> monthly (/12).
+    ng_home_annual = _parse_money(home_premium)
+    ng_auto_annual = _parse_money(auto_premium)
+    ng_home_value = ng_home_annual                                           # annual
+    ng_auto_value = ng_auto_annual / 12 if ng_auto_annual is not None else None  # monthly
+
+    # Read the current prices to beat (home = annual, auto = monthly).
+    try:
+        contact = await get_contact(contact_id)
+    except Exception as exc:
+        logger.warning("[ghl_client] Could not fetch contact %s for price compare: %s", contact_id, exc)
+        contact = {}
+    current_home = _parse_money(get_custom_field_by_id(contact, FIELD_ID_PRICE))       # fire_price (annual)
+    current_auto = _parse_money(get_custom_field_by_id(contact, FIELD_ID_AUTO_PRICE))  # auto_price (monthly)
+
+    # A side "passes" if we have an NG price AND (no current price OR we beat it).
+    home_pass = ng_home_value is not None and (current_home is None or ng_home_value < current_home)
+    auto_pass = ng_auto_value is not None and (current_auto is None or ng_auto_value < current_auto)
+    both_cheaper = home_pass and auto_pass
+
+    logger.info(
+        "[ghl_client] NG360 compare %s | home(annual): ng=%s vs cur=%s (pass=%s) | auto(monthly): ng=%s vs cur=%s (pass=%s) | update=%s",
+        contact_id, ng_home_value, current_home, home_pass,
+        ng_auto_value, current_auto, auto_pass, both_cheaper,
+    )
+
+    if both_cheaper:
+        updates: dict[str, str] = {
+            FIELD_ID_PRICE:               _fmt_money(ng_home_value),  # fire_price (ANNUAL)
+            FIELD_ID_AUTO_PRICE:          _fmt_money(ng_auto_value),  # auto_price (MONTHLY)
+            FIELD_ID_FIRE_QUOTE_CARRIER:  "National General 360",
+            FIELD_ID_AUTO_QUOTE_CARRIER:  "National General 360",
+            FIELD_ID_QUOTE_STATUS:        STATUS_COMPLETED,
+            FIELD_ID_AUTO_QUOTE_STATUS:   STATUS_COMPLETED,
+        }
+        if link:
+            updates[FIELD_ID_AUTO_QUOTE_URL]   = link  # auto quote link
+            updates[FIELD_ID_UPLOAD_FIRE_QUOTE] = link  # home/fire quote link
+        await update_contact_fields(contact_id, updates)
+        await add_tag_to_contact(contact_id, TAG_NG_SUCCESS)
+
+    # Either way: log the completed bundle (with home/auto prices) as a note.
+    # "Marketing team quotes" comparison note — added EITHER WAY so the team
+    # always sees both options with links.
+    #   Option 1 = the customer's current quotes (pre-NG360 snapshot)
+    #   Option 2 = the National General 360 bundle
+    home_str = _fmt_money(ng_home_value) if ng_home_value is not None else "n/a"
+    auto_str = _fmt_money(ng_auto_value) if ng_auto_value is not None else "n/a"
+
+    cur_home_carrier = get_custom_field_by_id(contact, FIELD_ID_FIRE_QUOTE_CARRIER) or "current"
+    cur_home_link    = get_custom_field_by_id(contact, FIELD_ID_UPLOAD_FIRE_QUOTE) or ""
+    cur_auto_carrier = get_custom_field_by_id(contact, FIELD_ID_AUTO_QUOTE_CARRIER) or "current"
+    cur_auto_link    = get_custom_field_by_id(contact, FIELD_ID_AUTO_QUOTE_URL) or ""
+
+    opt1 = []
+    if current_home is not None:
+        opt1.append(f"Home: {cur_home_carrier} {_fmt_money(current_home)}/yr"
+                    + (f" ({cur_home_link})" if cur_home_link else ""))
+    if current_auto is not None:
+        opt1.append(f"Auto: {cur_auto_carrier} {_fmt_money(current_auto)}/mo"
+                    + (f" ({cur_auto_link})" if cur_auto_link else ""))
+    opt1_str = " | ".join(opt1) if opt1 else "none on file"
+
+    opt2_str = (f"National General 360 — Home: {home_str}/yr | Auto: {auto_str}/mo"
+                + (f" ({link})" if link else ""))
+
+    note = (
+        "Marketing team quotes:\n"
+        f"Option 1 — {opt1_str}\n"
+        f"Option 2 — {opt2_str}"
+    )
+    await add_note_to_contact(contact_id, note)
+
+    # Real-time audit: re-read the contact and flag any unit/cheaper-rule/
+    # partial-write problems. Never blocks the quote flow.
+    try:
+        from services.quote_auditor import audit_and_alert
+        await audit_and_alert(contact_id, "NG360", expected={
+            "ng_home_annual": ng_home_value,
+            "ng_auto_monthly": ng_auto_value,
+            "current_home": current_home,
+            "current_auto": current_auto,
+            "both_cheaper": both_cheaper,
+        })
+    except Exception as exc:
+        logger.warning("[ghl_client] audit hook failed (non-fatal): %s", exc)
 
 
 async def record_failed_quote(contact_id: str, reason: str = "", missing_data: bool = False) -> None:
